@@ -1,11 +1,2 @@
-Flask==3.0.3
-flask-socketio==5.3.6
 python-socketio==5.10.0
-python-engineio==4.7.1
-eventlet==0.33.3
-psycopg2-binary==2.9.10
-Werkzeug==3.0.3
-Jinja2==3.1.4
-itsdangerous==2.2.0
-click==8.1.8
-blinker==1.8.2
+python-engineio==4.8.2
