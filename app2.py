@@ -1,6 +1,7 @@
 # ==============================
 # IMPORTS CORRECTOS
 # ==============================
+import os
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 import psycopg2
 from datetime import datetime, date, timedelta
@@ -9,7 +10,6 @@ import hashlib
 from functools import wraps
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import socket
-import os
 import locale
 
 # Configurar locale para español
@@ -70,15 +70,15 @@ app.jinja_env.filters['format_currency'] = format_currency
 app.jinja_env.filters['format_number'] = format_number
 
 # ==============================
-# CONEXIÓN A BASE DE DATOS
+# CONEXIÓN A BASE DE DATOS (CORREGIDO PARA RENDER)
 # ==============================
 def get_db_connection():
-    # Para Render - URL completa proporcionada
-    database_url = "postgresql://roka_db_user:tu_contraseña@dpg-d5ndakhr0fns73fgvmkg-a.oregon-postgres.render.com:5432/roka_db"
-    
     try:
-        # Para Render - conectar con SSL
-        return psycopg2.connect(database_url, sslmode='require')
+        # Para Render - usar DATABASE_URL
+        return psycopg2.connect(
+            os.environ["DATABASE_URL"],
+            sslmode="require"
+        )
     except Exception as e:
         print(f"❌ Error conectando a DB: {e}")
         # Fallback local
@@ -88,56 +88,19 @@ def get_db_connection():
                 port="5432",
                 database="roka",
                 user="postgres",
-                password="pm"
+                password=""
             )
         except:
             raise e
 
 # ==============================
-# WEBSOCKETS GENERALES
-# ==============================
-@socketio.on('connect')
-def handle_connect():
-    print(f'✅ Cliente conectado: {request.sid}')
-    emit('connection_response', {'status': 'connected', 'sid': request.sid})
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    print(f'❌ Cliente desconectado: {request.sid}')
-
-@socketio.on('join_mozo')
-def handle_join_mozo(data):
-    usuario_id = data.get('usuario_id')
-    nombre = data.get('nombre')
-    print(f'👤 Mozo {nombre} se unió')
-    emit('join_response', {'status': 'joined', 'rol': 'mozo'})
-
-# ==============================
-# WEBSOCKETS ESPECÍFICOS PARA CHEF
-# ==============================
-@socketio.on('connect', namespace='/chef')
-def handle_connect_chef():
-    print(f'👨‍🍳 Chef conectado: {request.sid}')
-    emit('connection_response', {'status': 'connected', 'rol': 'chef', 'message': 'Conexión establecida con cocina'}, namespace='/chef')
-
-@socketio.on('disconnect', namespace='/chef')
-def handle_disconnect_chef():
-    print(f'👨‍🍳 Chef desconectado: {request.sid}')
-
-@socketio.on('join_chef', namespace='/chef')
-def handle_join_chef(data):
-    usuario_id = data.get('usuario_id', 'invitado')
-    print(f'👨‍🍳 Chef se unió al namespace cocina (Usuario: {usuario_id})')
-    emit('join_response', {'status': 'joined', 'rol': 'chef', 'message': 'Bienvenido a la cocina'}, namespace='/chef')
-
-# ==============================
 # CREACIÓN DE TABLAS (SI NO EXISTEN) Y REPARACIÓN
 # ==============================
 def create_tables():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
     try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
         # Tablas existentes
         cur.execute('''
             CREATE TABLE IF NOT EXISTS usuarios (
@@ -294,13 +257,51 @@ def create_tables():
         
         conn.commit()
         print("✅ Tablas creadas exitosamente")
+        return True
         
     except Exception as e:
         print(f"❌ Error creando tablas: {e}")
-        conn.rollback()
+        return False
     finally:
         cur.close()
         conn.close()
+
+# ==============================
+# WEBSOCKETS GENERALES
+# ==============================
+@socketio.on('connect')
+def handle_connect():
+    print(f'✅ Cliente conectado: {request.sid}')
+    emit('connection_response', {'status': 'connected', 'sid': request.sid})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print(f'❌ Cliente desconectado: {request.sid}')
+
+@socketio.on('join_mozo')
+def handle_join_mozo(data):
+    usuario_id = data.get('usuario_id')
+    nombre = data.get('nombre')
+    print(f'👤 Mozo {nombre} se unió')
+    emit('join_response', {'status': 'joined', 'rol': 'mozo'})
+
+# ==============================
+# WEBSOCKETS ESPECÍFICOS PARA CHEF
+# ==============================
+@socketio.on('connect', namespace='/chef')
+def handle_connect_chef():
+    print(f'👨‍🍳 Chef conectado: {request.sid}')
+    emit('connection_response', {'status': 'connected', 'rol': 'chef', 'message': 'Conexión establecida con cocina'}, namespace='/chef')
+
+@socketio.on('disconnect', namespace='/chef')
+def handle_disconnect_chef():
+    print(f'👨‍🍳 Chef desconectado: {request.sid}')
+
+@socketio.on('join_chef', namespace='/chef')
+def handle_join_chef(data):
+    usuario_id = data.get('usuario_id', 'invitado')
+    print(f'👨‍🍳 Chef se unió al namespace cocina (Usuario: {usuario_id})')
+    emit('join_response', {'status': 'joined', 'rol': 'chef', 'message': 'Bienvenido a la cocina'}, namespace='/chef')
 
 # ==============================
 # FUNCIÓN PARA REPARAR PRODUCTOS MAL CARGADOS
