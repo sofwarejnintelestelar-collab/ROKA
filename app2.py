@@ -1,16 +1,49 @@
 # ==============================
-# APP POS - VERSIÓN SIMPLIFICADA
+# APP POS - VERSIÓN COMPLETA Y FUNCIONAL
 # ==============================
 import os
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from datetime import datetime
 import hashlib
+from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_pos_2024_sistema_login'
 
 # ==============================
-# RUTAS PRINCIPALES
+# UTILIDADES
+# ==============================
+def get_usuario_actual():
+    if 'user_id' in session:
+        return {
+            'id': session['user_id'],
+            'username': session.get('username'),
+            'nombre': session.get('nombre'),
+            'rol': session.get('rol')
+        }
+    return None
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Debes iniciar sesión primero', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def redirect_based_on_role(rol):
+    if rol == 'chef':
+        return redirect(url_for('chef'))
+    elif rol == 'mozo':
+        return redirect(url_for('mesas'))
+    elif rol == 'admin':
+        return redirect(url_for('productos'))
+    else:
+        return redirect(url_for('caja'))
+
+# ==============================
+# RUTAS DE AUTENTICACIÓN
 # ==============================
 @app.route("/")
 def index():
@@ -45,38 +78,14 @@ def login():
     
     return render_template("login.html", ahora=datetime.now())
 
-def redirect_based_on_role(rol):
-    if rol == 'chef':
-        return redirect(url_for('chef'))
-    elif rol == 'mozo':
-        return redirect(url_for('mesas'))
-    elif rol == 'admin':
-        return redirect(url_for('productos'))
-    else:
-        return redirect(url_for('caja'))
-
-def get_usuario_actual():
-    if 'user_id' in session:
-        return {
-            'id': session['user_id'],
-            'username': session.get('username'),
-            'nombre': session.get('nombre'),
-            'rol': session.get('rol')
-        }
-    return None
-
-def login_required(f):
-    from functools import wraps
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            flash('Debes iniciar sesión primero', 'warning')
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash('Sesión cerrada correctamente', 'info')
+    return redirect(url_for('login'))
 
 # ==============================
-# PANELES PRINCIPALES
+# RUTAS PRINCIPALES DEL SISTEMA
 # ==============================
 @app.route("/chef")
 @login_required
@@ -96,12 +105,6 @@ def mesas():
     usuario_actual = get_usuario_actual()
     return render_template("mesas.html", usuario=usuario_actual, ahora=datetime.now())
 
-@app.route("/productos")
-@login_required
-def productos():
-    usuario_actual = get_usuario_actual()
-    return render_template("productos.html", usuario=usuario_actual, ahora=datetime.now())
-
 @app.route("/ordenes")
 @login_required
 def ordenes():
@@ -109,12 +112,82 @@ def ordenes():
     return render_template("ordenes.html", usuario=usuario_actual, ahora=datetime.now())
 
 # ==============================
-# APIS SIMULADAS (SIN BASE DE DATOS)
+# RUTAS PARA PRODUCTOS (COMPLETAS)
+# ==============================
+@app.route("/productos")
+@login_required
+def productos():
+    usuario_actual = get_usuario_actual()
+    return render_template("productos.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/crear_producto")
+@login_required
+def crear_producto():
+    usuario_actual = get_usuario_actual()
+    return render_template("crear_producto.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/editar_producto/<int:id>")
+@login_required
+def editar_producto(id):
+    usuario_actual = get_usuario_actual()
+    return render_template("editar_producto.html", usuario=usuario_actual, producto_id=id, ahora=datetime.now())
+
+# ==============================
+# RUTAS PARA CATEGORÍAS
+# ==============================
+@app.route("/categorias")
+@login_required
+def categorias():
+    usuario_actual = get_usuario_actual()
+    return render_template("categorias.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/crear_categoria")
+@login_required
+def crear_categoria():
+    usuario_actual = get_usuario_actual()
+    return render_template("crear_categoria.html", usuario=usuario_actual, ahora=datetime.now())
+
+# ==============================
+# RUTAS PARA PROVEEDORES
+# ==============================
+@app.route("/proveedores")
+@login_required
+def proveedores():
+    usuario_actual = get_usuario_actual()
+    return render_template("proveedores.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/crear_proveedor")
+@login_required
+def crear_proveedor():
+    usuario_actual = get_usuario_actual()
+    return render_template("crear_proveedor.html", usuario=usuario_actual, ahora=datetime.now())
+
+# ==============================
+# RUTAS PARA VENTAS
+# ==============================
+@app.route("/ventas")
+@login_required
+def ventas():
+    usuario_actual = get_usuario_actual()
+    return render_template("ventas.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/historial_caja")
+@login_required
+def historial_caja():
+    usuario_actual = get_usuario_actual()
+    return render_template("historial_caja.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/cerrar_caja")
+@login_required
+def cerrar_caja():
+    usuario_actual = get_usuario_actual()
+    return render_template("cerrar_caja.html", usuario=usuario_actual, ahora=datetime.now())
+
+# ==============================
+# APIS (DATOS DE EJEMPLO)
 # ==============================
 @app.route("/api/mesas")
-@login_required
 def api_mesas():
-    # Datos de ejemplo para mesas
     mesas_ejemplo = [
         {'id': 1, 'numero': 1, 'capacidad': 4, 'estado': 'disponible', 'ubicacion': 'Salón principal'},
         {'id': 2, 'numero': 2, 'capacidad': 6, 'estado': 'ocupada', 'ubicacion': 'Terraza'},
@@ -124,9 +197,7 @@ def api_mesas():
     return jsonify(mesas_ejemplo)
 
 @app.route("/api/productos")
-@login_required
 def api_productos():
-    # Datos de ejemplo para productos
     productos_ejemplo = [
         {'id': 1, 'nombre': 'Bife de Chorizo', 'precio': 4500.00, 'stock': 10, 'tipo': 'comida'},
         {'id': 2, 'nombre': 'Milanesa Napolitana', 'precio': 3800.00, 'stock': 15, 'tipo': 'comida'},
@@ -138,9 +209,7 @@ def api_productos():
     return jsonify(productos_ejemplo)
 
 @app.route("/api/pedidos_cocina_comidas")
-@login_required
 def api_pedidos_cocina_comidas():
-    # Datos de ejemplo para pedidos en cocina
     pedidos_ejemplo = [
         {
             'id': 101,
@@ -173,9 +242,7 @@ def api_pedidos_cocina_comidas():
     return jsonify(pedidos_ejemplo)
 
 @app.route("/api/actualizar_item_estado", methods=["POST"])
-@login_required
 def api_actualizar_item_estado():
-    # Simular actualización de estado
     data = request.get_json()
     item_id = data.get('item_id')
     nuevo_estado = data.get('estado')
@@ -190,9 +257,7 @@ def api_actualizar_item_estado():
     })
 
 @app.route("/api/crear_orden", methods=["POST"])
-@login_required
 def api_crear_orden():
-    # Simular creación de orden
     data = request.get_json()
     mesa_id = data.get('mesa_id')
     items = data.get('items', [])
@@ -210,14 +275,26 @@ def api_crear_orden():
         "message": "Orden creada exitosamente (modo demo)"
     })
 
-# ==============================
-# RUTAS ADICIONALES
-# ==============================
-@app.route("/logout")
-def logout():
-    session.clear()
-    flash('Sesión cerrada correctamente', 'info')
-    return redirect(url_for('login'))
+@app.route("/api/ordenes_activas")
+def api_ordenes_activas():
+    ordenes_ejemplo = [
+        {'id': 101, 'mesa_numero': 2, 'mozo_nombre': 'Juan Pérez', 'total': 15600.00, 'estado': 'proceso'},
+        {'id': 102, 'mesa_numero': 4, 'mozo_nombre': 'María González', 'total': 8600.00, 'estado': 'abierta'},
+    ]
+    return jsonify(ordenes_ejemplo)
+
+@app.route("/api/categorias")
+def api_categorias():
+    categorias_ejemplo = [
+        {'id': 1, 'nombre': 'ENTRADAS'},
+        {'id': 2, 'nombre': 'PICADAS'},
+        {'id': 3, 'nombre': 'EMPANADAS'},
+        {'id': 4, 'nombre': 'PIZZAS'},
+        {'id': 5, 'nombre': 'PLATOS ESPECIALES'},
+        {'id': 6, 'nombre': 'POSTRES'},
+        {'id': 7, 'nombre': 'BEBIDAS'},
+    ]
+    return jsonify(categorias_ejemplo)
 
 @app.route("/api/pedidos_cocina")
 def api_pedidos_cocina():
