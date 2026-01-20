@@ -1,5 +1,3 @@
-# app2.py - VERSIÓN COMPLETA CORREGIDA CON TODAS LAS RUTAS
-
 # ==============================
 # IMPORTS CORRECTOS
 # ==============================
@@ -75,13 +73,25 @@ app.jinja_env.filters['format_number'] = format_number
 # CONEXIÓN A BASE DE DATOS
 # ==============================
 def get_db_connection():
-    return psycopg2.connect(
-        host="localhost",
-        port="5432",
-        database="roka",
-        user="postgres",
-        password="pm"
-    )
+    # Para Render - URL completa proporcionada
+    database_url = "postgresql://roka_db_user:tu_contraseña@dpg-d5ndakhr0fns73fgvmkg-a.oregon-postgres.render.com:5432/roka_db"
+    
+    try:
+        # Para Render - conectar con SSL
+        return psycopg2.connect(database_url, sslmode='require')
+    except Exception as e:
+        print(f"❌ Error conectando a DB: {e}")
+        # Fallback local
+        try:
+            return psycopg2.connect(
+                host="localhost",
+                port="5432",
+                database="roka",
+                user="postgres",
+                password="pm"
+            )
+        except:
+            raise e
 
 # ==============================
 # WEBSOCKETS GENERALES
@@ -364,10 +374,6 @@ def reparar_productos():
     finally:
         cur.close()
         conn.close()
-
-# Crear tablas y reparar productos
-create_tables()
-reparar_productos()
 
 # ==============================
 # FUNCIONES DE AUTENTICACIÓN
@@ -2422,31 +2428,21 @@ def api_abrir_turno():
         return jsonify({"success": False, "message": "Error del servidor"}), 500
 
 # ==============================
-# RUTAS API COMPATIBILIDAD
+# API COMPATIBILIDAD
 # ==============================
 @app.route("/api/pedidos_cocina")
 def api_pedidos_cocina():
-    """Alias para compatibilidad - redirige a la ruta correcta"""
+    """Alias para compatibilidad"""
     return redirect(url_for('api_pedidos_cocina_comidas'))
 
 @app.route("/logout")
 def logout():
     session.clear()
     flash('Sesión cerrada correctamente', 'info')
-    return redirect(url_for('chef'))  # Redirigir al chef que es público
+    return redirect(url_for('chef'))
 
 # ==============================
-# MANEJO DE ERRORES (CORREGIDO)
-# ==============================
-@app.errorhandler(404)
-def pagina_no_encontrada(e):
-    return render_template('404.html'), 404
-
-@app.errorhandler(500)
-def error_servidor(e):
-    return render_template('500.html'), 500
-# ==============================
-# RUTAS PARA GESTIÓN DE MESAS - AGREGAR RUTA FALTANTE
+# RUTAS PARA GESTIÓN DE MESAS
 # ==============================
 @app.route("/abrir_mesa/<int:mesa_id>")
 @login_required
@@ -2456,7 +2452,6 @@ def abrir_mesa(mesa_id):
     cur = conn.cursor()
     
     try:
-        # Verificar si la mesa existe
         cur.execute('SELECT * FROM mesas WHERE id = %s', (mesa_id,))
         mesa = cur.fetchone()
         
@@ -2464,20 +2459,16 @@ def abrir_mesa(mesa_id):
             flash('Mesa no encontrada', 'danger')
             return redirect(url_for('mesas'))
         
-        # Cambiar estado a disponible
         cur.execute('UPDATE mesas SET estado = %s WHERE id = %s', ('disponible', mesa_id))
         
-        # Verificar si hay órdenes abiertas en esta mesa
         cur.execute('SELECT id FROM ordenes WHERE mesa_id = %s AND estado IN (%s, %s, %s)', 
                    (mesa_id, 'abierta', 'proceso', 'listo'))
         orden_activa = cur.fetchone()
         
         if orden_activa:
-            # Si hay orden activa, también cambiar estado de la orden
             cur.execute('UPDATE ordenes SET estado = %s WHERE id = %s', ('cerrada', orden_activa[0]))
         
         conn.commit()
-        
         flash(f'Mesa #{mesa[1]} abierta exitosamente', 'success')
         
     except Exception as e:
@@ -2490,7 +2481,6 @@ def abrir_mesa(mesa_id):
     
     return redirect(url_for('mesas'))
 
-# También necesitas la ruta para ocupar mesa
 @app.route("/ocupar_mesa/<int:mesa_id>")
 @login_required
 def ocupar_mesa(mesa_id):
@@ -2499,7 +2489,6 @@ def ocupar_mesa(mesa_id):
     cur = conn.cursor()
     
     try:
-        # Verificar si la mesa existe
         cur.execute('SELECT * FROM mesas WHERE id = %s', (mesa_id,))
         mesa = cur.fetchone()
         
@@ -2507,11 +2496,8 @@ def ocupar_mesa(mesa_id):
             flash('Mesa no encontrada', 'danger')
             return redirect(url_for('mesas'))
         
-        # Cambiar estado a ocupada
         cur.execute('UPDATE mesas SET estado = %s WHERE id = %s', ('ocupada', mesa_id))
-        
         conn.commit()
-        
         flash(f'Mesa #{mesa[1]} ocupada exitosamente', 'success')
         
     except Exception as e:
@@ -2525,12 +2511,29 @@ def ocupar_mesa(mesa_id):
     return redirect(url_for('mesas'))
 
 # ==============================
+# MANEJO DE ERRORES
+# ==============================
+@app.errorhandler(404)
+def pagina_no_encontrada(e):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def error_servidor(e):
+    return render_template('500.html'), 500
+
+# ==============================
 # INICIO DEL SERVIDOR
 # ==============================
 if __name__ == "__main__":
     import sys
     import webbrowser
     import threading
+
+    # Crear tablas solo al iniciar el servidor
+    print("🔄 Creando tablas de base de datos...")
+    create_tables()
+    reparar_productos()
+    print("✅ Base de datos inicializada")
 
     def abrir_navegador():
         webbrowser.open("http://127.0.0.1:5000/login")
@@ -2541,7 +2544,7 @@ if __name__ == "__main__":
 
     socketio.run(
         app,
-         host="0.0.0.0",
+        host="0.0.0.0",
         port=5000,
         debug=False,
         allow_unsafe_werkzeug=False,
