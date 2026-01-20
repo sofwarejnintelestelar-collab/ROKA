@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Nuevo producto</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+<style>
+    .optional-label {
+        font-weight: normal;
+        color: #6c757d;
+    }
+    .required-label {
+        font-weight: bold;
+        color: #dc3545;
+    }
+    .disabled-field {
+        background-color: #f8f9fa;
+        color: #6c757d;
+    }
+</style>
+</head>
+
+<body class="container mt-4">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="mb-1"><i data-feather="plus-circle" class="me-2"></i> Nuevo producto</h3>
+        <p class="text-muted mb-0">Agregar nuevo producto al sistema</p>
+    </div>
+    <div>
+        <a href="{{ url_for('productos') }}" class="btn btn-outline-secondary btn-sm">
+            <i data-feather="arrow-left" class="me-1"></i> Volver a productos
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i data-feather="package" class="me-2"></i> Información del producto</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="productoForm">
+            <!-- Tipo de producto -->
+            <div class="mb-3">
+                <label class="form-label required-label">Tipo de producto *</label>
+                <select class="form-control" name="tipo" id="tipoSelect" required onchange="actualizarCampos()">
+                    <option value="">Seleccione un tipo</option>
+                    {% for tipo in tipos %}
+                    <option value="{{ tipo.valor }}">{{ tipo.nombre }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Seleccione el tipo de producto. Las comidas son platos del menú.</div>
+            </div>
+
+            <!-- Código de barras -->
+            <div class="mb-3">
+                <label class="form-label" id="codigoLabel">
+                    Código de barras 
+                    <span id="codigoRequired" class="required-label" style="display: none;">*</span>
+                    <span id="codigoOptional" class="optional-label">(No aplica para comidas)</span>
+                </label>
+                <input type="text" class="form-control" name="codigo_barra" id="codigoInput" 
+                       placeholder="No requerido para comidas" readonly>
+                <div class="form-text" id="codigoHelp">
+                    Para comidas este campo no es necesario. Para productos y bebidas ingrese el código.
+                </div>
+            </div>
+
+            <!-- Nombre -->
+            <div class="mb-3">
+                <label class="form-label required-label">Nombre del producto *</label>
+                <input type="text" class="form-control" name="nombre" required 
+                       placeholder="Ej: Bife de Chorizo, Coca-Cola 500ml">
+                <div class="form-text">Nombre descriptivo del producto.</div>
+            </div>
+
+            <!-- Precio -->
+            <div class="mb-3">
+                <label class="form-label required-label">Precio *</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" step="0.01" min="0" class="form-control" 
+                           name="precio" required placeholder="0.00">
+                </div>
+                <div class="form-text">Precio de venta del producto.</div>
+            </div>
+
+            <!-- Stock -->
+            <div class="mb-3">
+                <label class="form-label" id="stockLabel">
+                    Stock inicial 
+                    <span id="stockRequired" class="required-label" style="display: none;">*</span>
+                    <span id="stockOptional" class="optional-label">(No aplica para comidas)</span>
+                </label>
+                <input type="number" class="form-control" name="stock" id="stockInput" 
+                       value="0" min="0" placeholder="0">
+                <div class="form-text" id="stockHelp">
+                    Para comidas no se controla el stock (siempre disponible). Para otros productos ingrese la cantidad inicial.
+                </div>
+            </div>
+
+            <!-- Categoría -->
+            <div class="mb-3">
+                <label class="form-label required-label">Categoría *</label>
+                <select class="form-control" name="categoria_id" required>
+                    <option value="">Seleccione una categoría</option>
+                    {% for c in categorias %}
+                    <option value="{{ c.id }}">{{ c.nombre }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Seleccione la categoría del producto.</div>
+            </div>
+
+            <!-- Proveedor -->
+            <div class="mb-3">
+                <label class="form-label">Proveedor</label>
+                <select class="form-control" name="proveedor_id">
+                    <option value="">Sin proveedor</option>
+                    {% for p in proveedores %}
+                    <option value="{{ p.id }}">{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Opcional. Seleccione el proveedor si aplica.</div>
+            </div>
+
+            <!-- Botones -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{{ url_for('productos') }}" class="btn btn-outline-secondary">
+                    <i data-feather="x" class="me-1"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-success">
+                    <i data-feather="save" class="me-1"></i> Guardar producto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+feather.replace();
+
+function actualizarCampos() {
+    const tipo = document.getElementById('tipoSelect').value;
+    const stockInput = document.getElementById('stockInput');
+    const stockHelp = document.getElementById('stockHelp');
+    const stockRequired = document.getElementById('stockRequired');
+    const stockOptional = document.getElementById('stockOptional');
+    const codigoInput = document.getElementById('codigoInput');
+    const codigoHelp = document.getElementById('codigoHelp');
+    const codigoRequired = document.getElementById('codigoRequired');
+    const codigoOptional = document.getElementById('codigoOptional');
+    const codigoLabel = document.getElementById('codigoLabel');
+    
+    if (tipo === 'comida') {
+        // Para comidas: stock no se controla, código bloqueado
+        stockInput.disabled = true;
+        stockInput.value = '';
+        stockInput.classList.add('disabled-field');
+        stockInput.required = false;
+        stockRequired.style.display = 'none';
+        stockOptional.style.display = 'inline';
+        stockHelp.textContent = 'Para comidas no se controla el stock (siempre disponible)';
+        stockHelp.className = 'form-text text-muted';
+        
+        // Código de barras: BLOQUEADO para comidas
+        codigoInput.disabled = true;
+        codigoInput.readOnly = true;
+        codigoInput.required = false;
+        codigoInput.value = '';
+        codigoInput.classList.add('disabled-field');
+        codigoInput.placeholder = 'No aplica para comidas';
+        codigoRequired.style.display = 'none';
+        codigoOptional.style.display = 'inline';
+        codigoHelp.textContent = 'Las comidas no requieren código de barras';
+        codigoHelp.className = 'form-text text-muted';
+        
+    } else if (tipo === 'bebida' || tipo === 'producto') {
+        // Para bebidas y productos: stock obligatorio, código obligatorio
+        stockInput.disabled = false;
+        stockInput.classList.remove('disabled-field');
+        stockInput.required = true;
+        stockRequired.style.display = 'inline';
+        stockOptional.style.display = 'none';
+        stockHelp.textContent = 'Stock inicial requerido para productos y bebidas';
+        stockHelp.className = 'form-text text-muted';
+        
+        // Código de barras: HABILITADO para productos/bebidas
+        codigoInput.disabled = false;
+        codigoInput.readOnly = false;
+        codigoInput.required = true;
+        codigoInput.classList.remove('disabled-field');
+        codigoInput.placeholder = 'Ingrese código de barras (requerido)';
+        codigoRequired.style.display = 'inline';
+        codigoOptional.style.display = 'none';
+        codigoHelp.textContent = 'Código de barras requerido para productos y bebidas';
+        codigoHelp.className = 'form-text text-muted';
+        
+        // Limpiar el campo si estaba en modo comida
+        if (codigoInput.value === '' || codigoInput.placeholder.includes('No aplica')) {
+            codigoInput.value = '';
+        }
+        
+    } else {
+        // Sin selección - estado inicial
+        stockInput.disabled = false;
+        stockInput.classList.remove('disabled-field');
+        stockInput.required = true;
+        stockRequired.style.display = 'inline';
+        stockOptional.style.display = 'none';
+        stockHelp.textContent = 'Stock inicial requerido';
+        stockHelp.className = 'form-text text-muted';
+        
+        codigoInput.disabled = false;
+        codigoInput.readOnly = false;
+        codigoInput.required = true;
+        codigoInput.classList.remove('disabled-field');
+        codigoInput.placeholder = 'Ingrese código de barras';
+        codigoRequired.style.display = 'inline';
+        codigoOptional.style.display = 'none';
+        codigoHelp.textContent = 'Ingrese código de barras';
+        codigoHelp.className = 'form-text text-muted';
+    }
+}
+
+// Inicializar al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarCampos();
+});
+
+// Generar código automático en el backend para comidas
+document.getElementById('productoForm').addEventListener('submit', function(e) {
+    const tipo = document.getElementById('tipoSelect').value;
+    const codigoInput = document.getElementById('codigoInput');
+    
+    // Para comidas, asegurarse de que el campo esté vacío (no se envía)
+    if (tipo === 'comida') {
+        codigoInput.value = '';
+    }
+    
+    // Validar que para productos/bebidas tenga código
+    if ((tipo === 'bebida' || tipo === 'producto')) {
+        const codigo = codigoInput.value.trim();
+        if (!codigo) {
+            e.preventDefault();
+            alert('El código de barras es requerido para productos y bebidas');
+            codigoInput.focus();
+            codigoInput.classList.add('is-invalid');
+        }
+    }
+});
+
+// Remover clase de error cuando el usuario empiece a escribir
+document.getElementById('codigoInput').addEventListener('input', function() {
+    this.classList.remove('is-invalid');
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

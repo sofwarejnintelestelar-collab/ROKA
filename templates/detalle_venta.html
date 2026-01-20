@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de Venta #{{ venta.id }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3a0ca3;
+            --success-color: #4cc9f0;
+            --light-bg: #f8f9fa;
+            --dark-text: #212529;
+            --border-radius: 10px;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: var(--dark-text);
+            padding: 20px 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 0;
+            overflow: hidden;
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 25px 30px;
+            margin-bottom: 0;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header .btn-volver {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .header .btn-volver:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .info-card {
+            background: var(--light-bg);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .info-card h5 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-card p {
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .info-card strong {
+            color: var(--dark-text);
+            min-width: 120px;
+            display: inline-block;
+        }
+        
+        .table-responsive {
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            margin: 25px 0;
+        }
+        
+        .table {
+            margin-bottom: 0;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .table thead {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+        }
+        
+        .table thead th {
+            border: none;
+            padding: 15px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .table tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .badge-metodo {
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-transferencia {
+            background-color: #4361ee;
+            color: white;
+        }
+        
+        .badge-efectivo {
+            background-color: #38b000;
+            color: white;
+        }
+        
+        .badge-tarjeta {
+            background-color: #ff9e00;
+            color: white;
+        }
+        
+        .badge-otros {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .total-section {
+            background: linear-gradient(135deg, #4cc9f0 0%, #4361ee 100%);
+            color: white;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            margin-top: 30px;
+        }
+        
+        .total-section h4 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.4rem;
+        }
+        
+        .total-section .total-amount {
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        
+        .footer-buttons {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .btn-imprimir {
+            background: linear-gradient(135deg, #38b000 0%, #2d9100 100%);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-imprimir:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(56, 176, 0, 0.3);
+            color: white;
+        }
+        
+        .btn-volver-bottom {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            border-radius: 50px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-volver-bottom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+            color: white;
+        }
+        
+        .no-items {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .no-items i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .producto-nombre {
+            font-weight: 500;
+            color: var(--dark-text);
+        }
+        
+        .cantidad-badge {
+            background-color: #e9ecef;
+            color: var(--dark-text);
+            padding: 4px 10px;
+            border-radius: 50px;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        
+        .precio-unitario {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .subtotal {
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+        
+        .texto-resaltado {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        @media print {
+            .header .btn-volver,
+            .footer-buttons {
+                display: none !important;
+            }
+            
+            body {
+                background: white !important;
+            }
+            
+            .container {
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .table thead th {
+                padding: 10px;
+                font-size: 0.8rem;
+            }
+            
+            .table tbody td {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            
+            .footer-buttons {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .footer-buttons > div {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .footer-buttons button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Encabezado -->
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>
+                    <i class="bi bi-receipt"></i>
+                    Detalle de Venta #{{ venta.id }}
+                </h1>
+                <a href="{{ url_for('ventas') }}" class="btn btn-volver">
+                    <i class="bi bi-arrow-left"></i> Volver a Ventas
+                </a>
+            </div>
+        </div>
+
+        <!-- Contenido principal -->
+        <div class="content">
+            <!-- Información de la venta -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h5><i class="bi bi-info-circle"></i> Información General</h5>
+                        <p><strong>ID de Venta:</strong> #{{ venta.id }}</p>
+                        <p><strong>Fecha y Hora:</strong> {{ venta.fecha }}</p>
+                        <p><strong>ID Turno Caja:</strong> {{ venta.turno_caja_id or 'No asignado' }}</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h5><i class="bi bi-credit-card"></i> Información de Pago</h5>
+                        <p><strong>Método de Pago:</strong> 
+                            {% if venta.metodo_pago == 'Transferencia' %}
+                                <span class="badge-metodo badge-transferencia">{{ venta.metodo_pago }}</span>
+                            {% elif venta.metodo_pago == 'Efectivo' %}
+                                <span class="badge-metodo badge-efectivo">{{ venta.metodo_pago }}</span>
+                            {% elif venta.metodo_pago == 'Tarjeta' %}
+                                <span class="badge-metodo badge-tarjeta">{{ venta.metodo_pago }}</span>
+                            {% else %}
+                                <span class="badge-metodo badge-otros">{{ venta.metodo_pago }}</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Estado:</strong> <span class="text-success fw-bold">Completada</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos de la venta -->
+            <h4 class="mb-4">
+                <i class="bi bi-cart-check"></i> Productos Vendidos
+                {% if items %}
+                    <span class="badge bg-primary ms-2">{{ items|length }} producto(s)</span>
+                {% endif %}
+            </h4>
+            
+            {% if items %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th width="40%">Producto</th>
+                                <th width="15%" class="text-center">Cantidad</th>
+                                <th width="20%" class="text-end">Precio Unitario</th>
+                                <th width="25%" class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>
+                                    <span class="producto-nombre">{{ item.producto }}</span>
+                                    {% if not item.producto or item.producto == '' %}
+                                        <span class="text-danger fst-italic">(Producto no especificado)</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="cantidad-badge">{{ item.cantidad }}</span>
+                                </td>
+                                <td class="text-end precio-unitario">
+                                    ${{ "%.2f"|format(item.precio_unitario) }}
+                                </td>
+                                <td class="text-end subtotal">
+                                    ${{ "%.2f"|format(item.subtotal) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Resumen de totales -->
+                <div class="total-section">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h4>Total de la Venta</h4>
+                            <p class="mb-0">Incluye todos los productos listados</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="total-amount">
+                                ${{ "%.2f"|format(venta.total) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Estadísticas adicionales -->
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="info-card text-center">
+                            <h6 class="texto-resaltado">Total Productos</h6>
+                            <p class="mb-0" style="font-size: 1.2rem;">{{ items|length }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-card text-center">
+                            <h6 class="texto-resaltado">Cantidad Total</h6>
+                            <p class="mb-0" style="font-size: 1.2rem;">
+                                {% set total_cantidad = namespace(value=0) %}
+                                {% for item in items %}
+                                    {% set total_cantidad.value = total_cantidad.value + item.cantidad %}
+                                {% endfor %}
+                                {{ total_cantidad.value }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-card text-center">
+                            <h6 class="texto-resaltado">Promedio por Producto</h6>
+                            <p class="mb-0" style="font-size: 1.2rem;">
+                                ${{ "%.2f"|format(venta.total / items|length) if items|length > 0 else '0.00' }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="no-items">
+                    <i class="bi bi-cart-x"></i>
+                    <h4>No hay productos en esta venta</h4>
+                    <p class="text-muted">No se encontraron productos asociados a esta venta.</p>
+                </div>
+            {% endif %}
+
+            <!-- Botones de acción - SOLO IMPRIMIR Y VOLVER -->
+            <div class="footer-buttons">
+                <div class="d-flex gap-2">
+                    <button onclick="imprimirDetalle()" class="btn btn-imprimir">
+                        <i class="bi bi-printer"></i> Imprimir Detalle
+                    </button>
+                </div>
+                <a href="{{ url_for('ventas') }}" class="btn btn-volver-bottom">
+                    <i class="bi bi-arrow-left-circle"></i> Volver al Listado
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Función para imprimir el detalle
+        function imprimirDetalle() {
+            // Guardar los botones originales
+            const footerButtons = document.querySelector('.footer-buttons');
+            const originalDisplay = footerButtons.style.display;
+            
+            // Ocultar los botones para imprimir
+            footerButtons.style.display = 'none';
+            
+            // Imprimir
+            window.print();
+            
+            // Restaurar los botones
+            setTimeout(() => {
+                footerButtons.style.display = originalDisplay || 'flex';
+            }, 100);
+        }
+        
+        // Opcional: Añadir funcionalidad para copiar el resumen
+        function copiarResumen() {
+            const ventaId = document.querySelector('.header h1').textContent.trim();
+            const fecha = document.querySelector('.info-card p:nth-child(2)').textContent.replace('Fecha y Hora:', '').trim();
+            const metodo = document.querySelector('.badge-metodo').textContent;
+            const total = document.querySelector('.total-amount').textContent;
+            
+            const resumen = `Detalle de Venta ${ventaId}\n` +
+                          `Fecha: ${fecha}\n` +
+                          `Método de Pago: ${metodo}\n` +
+                          `Total: ${total}\n\n` +
+                          `Productos:\n`;
+            
+            // Añadir productos
+            const productos = document.querySelectorAll('.producto-nombre');
+            productos.forEach((producto, index) => {
+                const cantidad = document.querySelectorAll('.cantidad-badge')[index].textContent;
+                const precio = document.querySelectorAll('.precio-unitario')[index].textContent;
+                resumen += `${producto.textContent} - ${cantidad} x ${precio}\n`;
+            });
+            
+            navigator.clipboard.writeText(resumen)
+                .then(() => alert('Resumen copiado al portapapeles!'))
+                .catch(err => console.error('Error al copiar: ', err));
+        }
+        
+        // Añadir evento para copiar al portapapeles con Ctrl+C
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'c') {
+                e.preventDefault();
+                copiarResumen();
+            }
+        });
+        
+        // Mostrar mensaje de atajo de teclado
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Atajo de teclado disponible: Ctrl+C para copiar resumen');
+        });
+    </script>
+</body>
+</html>

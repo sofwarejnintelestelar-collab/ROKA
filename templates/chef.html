@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cocina - Panel Chef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <style>
+        :root {
+            --color-pendiente: #ffc107;
+            --color-proceso: #0dcaf0;
+            --color-listo: #198754;
+        }
+        
+        body {
+            background: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .header-chef {
+            background: white;
+            border-bottom: 1px solid #dee2e6;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .pedido-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 5px solid var(--color-pendiente);
+        }
+        
+        .pedido-card.proceso {
+            border-left-color: var(--color-proceso);
+        }
+        
+        .pedido-card.listo {
+            border-left-color: var(--color-listo);
+        }
+        
+        .pedido-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .pedido-body {
+            padding: 15px;
+        }
+        
+        .item-pedido {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .item-pedido.pendiente {
+            border-left: 4px solid var(--color-pendiente);
+        }
+        
+        .item-pedido.proceso {
+            border-left: 4px solid var(--color-proceso);
+        }
+        
+        .item-pedido.listo {
+            border-left: 4px solid var(--color-listo);
+        }
+        
+        .badge-estado {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+        
+        .badge-pendiente {
+            background: var(--color-pendiente);
+            color: #000;
+        }
+        
+        .badge-proceso {
+            background: var(--color-proceso);
+            color: #000;
+        }
+        
+        .badge-listo {
+            background: var(--color-listo);
+            color: white;
+        }
+        
+        .btn-accion {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        
+        .btn-iniciar {
+            background: #0dcaf0;
+            color: white;
+        }
+        
+        .btn-finalizar {
+            background: #198754;
+            color: white;
+        }
+        
+        .timer {
+            font-family: monospace;
+            background: #343a40;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="header-chef">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i data-feather="clock"></i> Panel de Cocina
+                    </h1>
+                    <p class="mb-0 text-muted">Control de pedidos en tiempo real</p>
+                </div>
+                <div>
+                    <div id="horaActual" class="h4 mb-0"></div>
+                    <small class="text-muted">Última actualización: <span id="ultimaActualizacion">--:--:--</span></small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estadísticas -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <div class="h2 text-warning" id="totalPendientes">0</div>
+                        <small>Pendientes</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <div class="h2 text-info" id="totalProceso">0</div>
+                        <small>En Proceso</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <div class="h2 text-success" id="totalListos">0</div>
+                        <small>Listos</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <div class="h2 text-primary" id="totalPedidos">0</div>
+                        <small>Pedidos Activos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Lista de pedidos -->
+        <div id="pedidosContainer">
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-3 text-muted">Cargando pedidos...</p>
+            </div>
+        </div>
+        
+        <!-- Botón de refresh -->
+        <div class="text-center mt-4 mb-4">
+            <button onclick="cargarPedidos()" class="btn btn-primary">
+                <i data-feather="refresh-cw"></i> Actualizar
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let pedidos = [];
+        
+        feather.replace();
+        
+        function actualizarHora() {
+            const ahora = new Date();
+            const hora = ahora.getHours().toString().padStart(2, '0');
+            const minutos = ahora.getMinutes().toString().padStart(2, '0');
+            const segundos = ahora.getSeconds().toString().padStart(2, '0');
+            document.getElementById('horaActual').textContent = `${hora}:${minutos}:${segundos}`;
+        }
+        
+        async function cargarPedidos() {
+            try {
+                const response = await fetch('/api/pedidos_cocina');
+                pedidos = await response.json();
+                
+                const ahora = new Date();
+                document.getElementById('ultimaActualizacion').textContent = 
+                    `${ahora.getHours().toString().padStart(2, '0')}:${ahora.getMinutes().toString().padStart(2, '0')}:${ahora.getSeconds().toString().padStart(2, '0')}`;
+                
+                renderizarPedidos();
+                actualizarEstadisticas();
+                
+            } catch (error) {
+                console.error('Error cargando pedidos:', error);
+                document.getElementById('pedidosContainer').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i data-feather="alert-triangle"></i> Error cargando pedidos. Intenta de nuevo.
+                    </div>
+                `;
+                feather.replace();
+            }
+        }
+        
+        function renderizarPedidos() {
+            const container = document.getElementById('pedidosContainer');
+            
+            if (pedidos.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i data-feather="info"></i> No hay pedidos activos en este momento.
+                    </div>
+                `;
+                feather.replace();
+                return;
+            }
+            
+            let html = '';
+            
+            pedidos.forEach(pedido => {
+                let cardClass = 'pedido-card';
+                if (pedido.estadisticas.listos === pedido.estadisticas.total) {
+                    cardClass += ' listo';
+                } else if (pedido.estadisticas.proceso > 0) {
+                    cardClass += ' proceso';
+                }
+                
+                html += `
+                    <div class="${cardClass}">
+                        <div class="pedido-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-0">Mesa ${pedido.mesa_numero}</h5>
+                                    <small>Pedido #${pedido.id} • ${pedido.fecha_apertura}</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="badge bg-secondary">$${pedido.total.toFixed(2)}</div>
+                                    <div><small>${pedido.mozo_nombre}</small></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="pedido-body">
+                            <div class="d-flex gap-2 mb-3">
+                                <span class="badge bg-warning">${pedido.estadisticas.pendientes} pendiente(s)</span>
+                                <span class="badge bg-info">${pedido.estadisticas.proceso} en proceso</span>
+                                <span class="badge bg-success">${pedido.estadisticas.listos} listo(s)</span>
+                            </div>
+                            
+                            ${renderizarItems(pedido.items)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            feather.replace();
+        }
+        
+        function renderizarItems(items) {
+            let html = '<div class="items-list">';
+            
+            items.forEach(item => {
+                const itemClass = `item-pedido ${item.estado_item}`;
+                
+                html += `
+                    <div class="${itemClass}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <strong>${item.producto_nombre}</strong>
+                                <div class="text-muted">x${item.cantidad} • $${item.precio_unitario.toFixed(2)} c/u</div>
+                                
+                                ${item.observaciones ? `<div class="mt-1"><small><em>${item.observaciones}</em></small></div>` : ''}
+                            </div>
+                            
+                            <div class="ms-3">
+                                <span class="badge-estado badge-${item.estado_item}">${item.estado_item}</span>
+                                
+                                ${item.estado_item === 'pendiente' ? `
+                                    <button class="btn-accion btn-iniciar mt-2" onclick="actualizarEstado(${item.id}, 'proceso')">
+                                        <i data-feather="play"></i> Iniciar
+                                    </button>
+                                ` : ''}
+                                
+                                ${item.estado_item === 'proceso' ? `
+                                    <button class="btn-accion btn-finalizar mt-2" onclick="actualizarEstado(${item.id}, 'listo')">
+                                        <i data-feather="check"></i> Listo
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            return html;
+        }
+        
+        async function actualizarEstado(itemId, nuevoEstado) {
+            try {
+                const response = await fetch('/api/actualizar_item_estado', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        item_id: itemId,
+                        estado: nuevoEstado
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    cargarPedidos();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error actualizando estado:', error);
+                alert('Error al actualizar estado');
+            }
+        }
+        
+        function actualizarEstadisticas() {
+            let totalPendientes = 0;
+            let totalProceso = 0;
+            let totalListos = 0;
+            
+            pedidos.forEach(pedido => {
+                totalPendientes += pedido.estadisticas.pendientes;
+                totalProceso += pedido.estadisticas.proceso;
+                totalListos += pedido.estadisticas.listos;
+            });
+            
+            document.getElementById('totalPendientes').textContent = totalPendientes;
+            document.getElementById('totalProceso').textContent = totalProceso;
+            document.getElementById('totalListos').textContent = totalListos;
+            document.getElementById('totalPedidos').textContent = pedidos.length;
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            actualizarHora();
+            setInterval(actualizarHora, 1000);
+            
+            cargarPedidos();
+            
+            setInterval(cargarPedidos, 10000);
+        });
+    </script>
+</body>
+</html>

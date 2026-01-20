@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Editar Pedido #{{ pedido.id }}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+
+<body>
+<div class="container mt-4">
+
+  <header class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i data-feather="edit"></i> Editar Pedido #{{ pedido.id }}</h2>
+    <div>
+      <a href="{{ url_for('pedidos') }}" class="btn btn-sm btn-secondary">Pedidos</a>
+      <a href="{{ url_for('mesas') }}" class="btn btn-sm btn-outline-primary">Mesas</a>
+    </div>
+  </header>
+
+  <div class="card p-3 mb-4">
+    <div class="row">
+      <div class="col-md-6">
+        <h5>Información del Pedido</h5>
+        <p><strong>Mesa:</strong> <span class="badge bg-secondary">#{{ pedido.mesa_numero }}</span></p>
+        <p><strong>Estado:</strong> 
+          {% if pedido.estado == 'pendiente' %}
+            <span class="badge bg-warning">Pendiente</span>
+          {% elif pedido.estado == 'en_proceso' %}
+            <span class="badge bg-info">En Proceso</span>
+          {% elif pedido.estado == 'listo' %}
+            <span class="badge bg-success">Listo</span>
+          {% elif pedido.estado == 'cerrado' %}
+            <span class="badge bg-secondary">Cerrado</span>
+          {% else %}
+            <span class="badge bg-light text-dark">{{ pedido.estado|title }}</span>
+          {% endif %}
+        </p>
+        <p><strong>Total:</strong> <span class="h5 text-success">${{ "%.2f"|format(pedido.total) }}</span></p>
+      </div>
+      <div class="col-md-6">
+        <h5>Cambiar Estado</h5>
+        <form method="POST" class="mb-3">
+          <input type="hidden" name="accion" value="actualizar_estado">
+          <div class="input-group">
+            <select class="form-select" name="nuevo_estado">
+              <option value="pendiente" {% if pedido.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+              <option value="en_proceso" {% if pedido.estado == 'en_proceso' %}selected{% endif %}>En Proceso</option>
+              <option value="listo" {% if pedido.estado == 'listo' %}selected{% endif %}>Listo</option>
+              <option value="cerrado" {% if pedido.estado == 'cerrado' %}selected{% endif %}>Cerrado</option>
+            </select>
+            <button type="submit" class="btn btn-primary">
+              <i data-feather="refresh-cw"></i> Actualizar
+            </button>
+          </div>
+        </form>
+        
+        {% if pedido.observaciones %}
+        <div class="alert alert-info">
+          <strong><i data-feather="message-square"></i> Observaciones:</strong>
+          <p class="mb-0">{{ pedido.observaciones }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Agregar productos -->
+  <div class="card p-3 mb-4">
+    <h5 class="mb-3">Agregar Productos</h5>
+    <form method="POST">
+      <input type="hidden" name="accion" value="agregar_item">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <select class="form-select" name="producto_id" required>
+            <option value="">-- Seleccione un producto --</option>
+            {% for producto in productos %}
+            <option value="{{ producto.id }}">
+              {{ producto.nombre }} - ${{ "%.2f"|format(producto.precio) }} (Stock: {{ producto.stock }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <input type="number" class="form-control" name="cantidad" value="1" min="1" required>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-success w-100">
+            <i data-feather="plus"></i> Agregar al Pedido
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Items del pedido -->
+  <div class="card p-3">
+    <h5 class="mb-3">Productos del Pedido</h5>
+    
+    {% if items %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Precio Unitario</th>
+            <th>Subtotal</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.producto_nombre }}</td>
+            <td>{{ item.cantidad }}</td>
+            <td>${{ "%.2f"|format(item.precio_unitario) }}</td>
+            <td><strong>${{ "%.2f"|format(item.subtotal) }}</strong></td>
+            <td>
+              {% if item.estado == 'pendiente' %}
+                <span class="badge bg-warning">Pendiente</span>
+              {% elif item.estado == 'preparando' %}
+                <span class="badge bg-info">Preparando</span>
+              {% elif item.estado == 'listo' %}
+                <span class="badge bg-success">Listo</span>
+              {% else %}
+                <span class="badge bg-light text-dark">{{ item.estado|title }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('eliminar_item_pedido', pedido_id=pedido.id, item_id=item.id) }}" 
+                 class="btn btn-sm btn-outline-danger"
+                 onclick="return confirm('¿Eliminar este producto del pedido?')">
+                <i data-feather="trash-2"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="table-light">
+          <tr>
+            <td colspan="3" class="text-end"><strong>Total del Pedido:</strong></td>
+            <td><strong class="h5">${{ "%.2f"|format(pedido.total) }}</strong></td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+      <i data-feather="info"></i> No hay productos en este pedido. Agrega productos usando el formulario superior.
+    </div>
+    {% endif %}
+    
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+      {% if pedido.estado != 'cerrado' %}
+      <a href="{{ url_for('cerrar_pedido', id=pedido.id) }}" class="btn btn-success"
+         onclick="return confirm('¿Cerrar este pedido y liberar la mesa?')">
+        <i data-feather="check-circle"></i> Cerrar Pedido
+      </a>
+      {% endif %}
+      <a href="{{ url_for('pedidos') }}" class="btn btn-secondary ms-2">
+        <i data-feather="arrow-left"></i> Volver a Pedidos
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+feather.replace();
+</script>
+</body>
+</html>

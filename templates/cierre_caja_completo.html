@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Cierre de Caja Completado</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 20px;
+        }
+        .success-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .success-header {
+            background: linear-gradient(135deg, #2b8a3e 0%, #51cf66 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 5rem;
+            animation: bounce 1s ease-in-out;
+        }
+        .countdown-timer {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #dc3545;
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes bounce {
+            0%, 20%, 60%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            80% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-card">
+            <div class="success-header">
+                <div class="success-icon">
+                    <i data-feather="check-circle"></i>
+                </div>
+                <h1 class="mt-3">¡Cierre de Caja Completado!</h1>
+                <p class="mb-0">Turno #{{ registro.turno_id }} - {{ registro.usuario }}</p>
+            </div>
+            
+            <div class="p-4 p-md-5">
+                <!-- Resumen del cierre -->
+                <div class="alert {% if registro.diferencia == 0 %}alert-success{% elif registro.diferencia > 0 %}alert-warning{% else %}alert-danger{% endif %} mb-4">
+                    <h4 class="alert-heading">
+                        <i data-feather="trending-up"></i> Resumen del Cierre
+                    </h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Monto Inicial:</strong> ${{ "%.2f"|format(registro.monto_inicial) }}</p>
+                            <p><strong>Total Ventas:</strong> ${{ "%.2f"|format(registro.total_ventas) }}</p>
+                            <p><strong>Monto Esperado:</strong> ${{ "%.2f"|format(registro.monto_esperado) }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Monto Real:</strong> ${{ "%.2f"|format(registro.monto_final_real) }}</p>
+                            <p><strong>Diferencia:</strong> 
+                                <span class="{% if registro.diferencia == 0 %}text-success{% elif registro.diferencia > 0 %}text-warning{% else %}text-danger{% endif %}">
+                                    ${{ "%.2f"|format(registro.diferencia) }}
+                                </span>
+                            </p>
+                            <p><strong>Estado:</strong>
+                                {% if registro.diferencia == 0 %}
+                                <span class="badge bg-success">Exacto</span>
+                                {% elif registro.diferencia > 0 %}
+                                <span class="badge bg-warning">Sobrante</span>
+                                {% else %}
+                                <span class="badge bg-danger">Faltante</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Información de ventas -->
+                {% if registro.ventas and registro.ventas|length > 0 %}
+                <div class="mb-4">
+                    <h5><i data-feather="shopping-bag"></i> Ventas del Turno ({{ registro.ventas|length }})</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Mesa</th>
+                                    <th>Total</th>
+                                    <th>Hora</th>
+                                    <th>Items</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for venta in registro.ventas %}
+                                <tr>
+                                    <td>{{ venta.id }}</td>
+                                    <td>{{ venta.mesa_numero }}</td>
+                                    <td>${{ "%.2f"|format(venta.total) }}</td>
+                                    <td>{{ venta.fecha }}</td>
+                                    <td>{{ venta.items_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-light">
+                                    <td colspan="2"><strong>Total</strong></td>
+                                    <td><strong>${{ "%.2f"|format(registro.total_ventas) }}</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Observaciones -->
+                {% if registro.observaciones %}
+                <div class="alert alert-info mb-4">
+                    <h6><i data-feather="message-square"></i> Observaciones</h6>
+                    <p class="mb-0">{{ registro.observaciones }}</p>
+                </div>
+                {% endif %}
+                
+                <!-- Timer para redirección automática -->
+                <div class="countdown-timer" id="countdownTimer">
+                    <i data-feather="clock"></i>
+                    Redirigiendo al login en <span id="countdown">10</span> segundos...
+                </div>
+                
+                <!-- Botón para ir inmediatamente al login -->
+                <div class="d-grid gap-2">
+                    <a href="/logout" class="btn btn-primary btn-lg">
+                        <i data-feather="log-out"></i> Ir al Login Ahora
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        feather.replace();
+        
+        // Redirección automática después de 10 segundos
+        let seconds = 10;
+        const countdownElement = document.getElementById('countdown');
+        
+        const countdownInterval = setInterval(() => {
+            seconds--;
+            countdownElement.textContent = seconds;
+            
+            if (seconds <= 0) {
+                clearInterval(countdownInterval);
+                window.location.href = "/logout";
+            }
+        }, 1000);
+        
+        // Cancelar redirección si el usuario hace clic en cualquier lugar
+        document.addEventListener('click', () => {
+            clearInterval(countdownInterval);
+            countdownElement.parentElement.innerHTML = '<i data-feather="user"></i> Redirección cancelada por actividad del usuario';
+            feather.replace();
+        });
+    </script>
+</body>
+</html>

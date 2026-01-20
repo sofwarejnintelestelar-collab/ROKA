@@ -1,0 +1,461 @@
+/* ============================================
+   ESTILOS PRINCIPALES - SIN MODO OSCURO
+   ============================================ */
+
+/* 1. CONTENEDOR PRINCIPAL */
+.pos-container {
+    max-width: 1400px;
+    padding: 20px;
+}
+
+/* 2. HEADER */
+.pos-header {
+    padding: 1rem 0;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 1.5rem;
+}
+
+/* 3. ESTADOS DE CAJA */
+.caja-status {
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 2px solid transparent;
+}
+
+.caja-abierta {
+    background-color: #d1f7c4;
+    color: #0d5a1e;
+    border-color: #8ce99a;
+}
+
+.caja-cerrada {
+    background-color: #ffe3e3;
+    color: #c92a2a;
+    border-color: #ffa8a8;
+}
+
+/* 4. CARD PRINCIPAL */
+.pos-card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.pos-card .card-body {
+    padding: 1.5rem;
+}
+
+/* 5. FORMULARIOS */
+.form-control, .form-select {
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.25);
+    outline: none;
+}
+
+.form-control:disabled, .form-select:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+/* 6. TEXTO DE FORMULARIO - SIN LÍNEA MOLESTA */
+.form-text {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+    display: block;
+    padding-left: 0.5rem;
+    border-left: none !important;
+}
+
+/* 7. LISTA DE ITEMS */
+.items-list {
+    min-height: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+.empty-note {
+    text-align: center;
+    color: #6c757d;
+    padding: 3rem 1rem;
+    font-style: italic;
+}
+
+.empty-note i {
+    margin-bottom: 1rem;
+    color: #adb5bd;
+}
+
+/* 8. RESUMEN DE VENTA */
+.sale-summary {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem !important;
+}
+
+.summary-rows {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.summary-rows .grand {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #198754;
+}
+
+/* 9. SECCIÓN DE CAMBIO */
+#changeAmount {
+    transition: all 0.3s;
+}
+
+/* 10. BOTONES */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-success {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.btn-success:hover {
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+.btn-info {
+    background-color: #0dcaf0;
+    border-color: #0dcaf0;
+}
+
+.btn-info:hover {
+    background-color: #0bb5d4;
+    border-color: #0aa2c0;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #bb2d3b;
+    border-color: #b02a37;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
+}
+
+.btn-warning:hover {
+    background-color: #ffca2c;
+    border-color: #ffc720;
+    color: #000;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* 11. BADGES */
+.badge {
+    padding: 0.5em 0.8em;
+    font-size: 0.85em;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+.badge.bg-primary {
+    background-color: #0d6efd !important;
+}
+
+/* 12. ALERTAS */
+.alert {
+    border-radius: 8px;
+    border: none;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border-left: 4px solid #0dcaf0;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-left: 4px solid #198754;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border-left: 4px solid #ffc107;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+.alert-secondary {
+    background-color: #e2e3e5;
+    color: #383d41;
+    border-left: 4px solid #6c757d;
+}
+
+/* 13. GRID Y ESPACIADO */
+.row {
+    margin-left: -10px;
+    margin-right: -10px;
+}
+
+.col-lg-7, .col-lg-5 {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* 14. RESPONSIVE */
+@media (max-width: 992px) {
+    .pos-container {
+        padding: 15px;
+    }
+    
+    .pos-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .caja-status {
+        margin-top: 0.5rem;
+    }
+    
+    .items-list {
+        max-height: 300px;
+    }
+    
+    .sale-summary {
+        margin-top: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .pos-container {
+        padding: 10px;
+    }
+    
+    .btn {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    h5 {
+        font-size: 1.2rem;
+    }
+}
+
+/* 15. SCROLLBAR PERSONALIZADO */
+.items-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.items-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.items-list::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.items-list::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* 16. ANIMACIONES */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.alert {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* 17. ICONOS */
+[data-feather] {
+    vertical-align: middle;
+}
+
+/* 18. TABLAS */
+.table {
+    margin-bottom: 0;
+}
+
+.table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* 19. UTILIDADES */
+.text-success {
+    color: #198754 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-info {
+    color: #0dcaf0 !important;
+}
+
+.text-primary {
+    color: #0d6efd !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+.border-top {
+    border-top: 1px solid #dee2e6 !important;
+}
+
+/* 20. ESPECÍFICO PARA INPUT DE CÓDIGO */
+#barcodeInput {
+    font-size: 1.1rem;
+    font-weight: 500;
+    letter-spacing: 1px;
+}
+
+#barcodeInput::placeholder {
+    color: #6c757d;
+    font-weight: normal;
+}
+
+/* 21. SECCIÓN DE EFECTIVO */
+#cashSection {
+    transition: all 0.3s;
+}
+
+/* 22. TAMAÑOS DE FUENTE */
+.fs-5 {
+    font-size: 1.25rem !important;
+}
+
+.fs-6 {
+    font-size: 1rem !important;
+}
+
+/* 23. MARGENES Y PADDING */
+.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+.mt-4 {
+    margin-top: 1.5rem !important;
+}
+
+.p-3 {
+    padding: 1rem !important;
+}
+
+.py-2 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+}
+
+/* 24. VISIBILIDAD */
+.d-none {
+    display: none !important;
+}
+
+.d-block {
+    display: block !important;
+}
+
+/* 25. BORDES */
+.rounded {
+    border-radius: 8px !important;
+}
+
+.border {
+    border: 1px solid #dee2e6 !important;
+}
+

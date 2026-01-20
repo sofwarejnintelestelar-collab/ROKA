@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Editar proveedor</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="container mt-4">
+
+<h3>Editar proveedor</h3>
+
+<form method="POST">
+  
+  <div class="row">
+    <div class="col-md-6">
+      <label class="form-label">Nombre del proveedor *</label>
+      <input type="text" class="form-control mb-3" name="nombre" value="{{ proveedor.nombre }}" required>
+    </div>
+    
+    <div class="col-md-6">
+      <label class="form-label">Persona de contacto</label>
+      <input type="text" class="form-control mb-3" name="contacto" value="{{ proveedor.contacto or '' }}">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <label class="form-label">Teléfono</label>
+      <input type="text" class="form-control mb-3" name="telefono" value="{{ proveedor.telefono or '' }}">
+    </div>
+    
+    <div class="col-md-6">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-control mb-3" name="email" value="{{ proveedor.email or '' }}">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12">
+      <label class="form-label">Dirección</label>
+      <textarea class="form-control mb-3" name="direccion" rows="3">{{ proveedor.direccion or '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="activo" id="activo" 
+             {% if proveedor.activo %}checked{% endif %}>
+      <label class="form-check-label" for="activo">
+        Proveedor activo
+      </label>
+    </div>
+  </div>
+
+  <button class="btn btn-success">Guardar cambios</button>
+  <a href="{{ url_for('proveedores') }}" class="btn btn-secondary">Cancelar</a>
+
+</form>
+
+</body>
+</html>

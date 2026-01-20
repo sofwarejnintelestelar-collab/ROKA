@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Categorías</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+
+<body>
+<div class="container mt-4">
+
+  <header class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i data-feather="tag"></i> Categorías</h2>
+
+    <div>
+      <a href="{{ url_for('productos') }}" class="btn btn-sm btn-secondary">Productos</a>
+      <a href="{{ url_for('caja') }}" class="btn btn-sm btn-outline-primary">Caja</a>
+    </div>
+  </header>
+
+  <div class="card p-3">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5>Lista de categorías</h5>
+      <a href="{{ url_for('crear_categoria') }}" class="btn btn-primary btn-sm">+ Nueva categoría</a>
+    </div>
+
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in categorias %}
+        <tr>
+          <td>{{ c.id }}</td>
+          <td>{{ c.nombre }}</td>
+          <td>
+            <a href="{{ url_for('editar_categoria', id=c.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+            <a href="{{ url_for('eliminar_categoria', id=c.id) }}" 
+               class="btn btn-sm btn-outline-danger"
+               onclick="return confirm('¿Está seguro de eliminar la categoría {{ c.nombre }}?');">
+              Borrar
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  </div>
+
+</div>
+
+<script>feather.replace()</script>
+</body>
+</html>

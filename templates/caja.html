@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sistema POS</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+<style>
+    /* Estilos adicionales para notificaciones */
+    .notificacion-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        font-size: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+    
+    .notificacion-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+        animation: slideIn 0.5s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .btn-notificaciones {
+        position: relative;
+    }
+    
+    /* Estilos para estados de órdenes */
+    .badge-estado-orden {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .estado-pendiente {
+        background: #ffc107;
+        color: #000;
+    }
+    
+    .estado-proceso {
+        background: #0dcaf0;
+        color: #000;
+    }
+    
+    .estado-listo {
+        background: #198754;
+        color: white;
+    }
+    
+    /* Mejoras visuales para el carrito */
+    .cart-item-listo {
+        background: #d4edda;
+        border-left: 4px solid #198754;
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Estilos del POS */
+    .pos-container {
+        background: #f8f9fa;
+        min-height: 100vh;
+        padding: 20px 0;
+    }
+    
+    .pos-card {
+        border-radius: 15px;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .pos-header {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .items-list {
+        min-height: 200px;
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        background: white;
+    }
+    
+    .empty-note {
+        text-align: center;
+        color: #6c757d;
+        padding: 40px 20px;
+    }
+    
+    .cart-item {
+        transition: all 0.3s ease;
+    }
+    
+    .cart-item:hover {
+        background-color: #f8f9fa;
+        transform: translateY(-1px);
+    }
+    
+    .summary-rows .grand {
+        font-size: 1.1rem;
+        background-color: #e9ecef;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    
+    .sale-summary {
+        background: white;
+        border-radius: 10px;
+        border: 1px solid #dee2e6;
+    }
+    
+    /* Estilos para el estado de la caja */
+    .caja-status {
+        font-size: 0.9rem;
+        padding: 5px 10px;
+        border-radius: 20px;
+    }
+    
+    .caja-abierta {
+        background: #d1fae5;
+        color: #065f46;
+        border: 1px solid #10b981;
+    }
+    
+    .caja-cerrada {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #ef4444;
+    }
+</style>
+</head>
+
+<body>
+<!-- Datos ocultos para JavaScript -->
+<div id="app-data" style="display: none;"
+     data-turno-id="{{ turno_abierto.id if turno_abierto else '' }}"
+     data-usuario-rol="{{ usuario.rol if usuario else '' }}">
+</div>
+
+<div class="container pos-container">
+
+  <!-- NAVEGACIÓN COMPLETA -->
+  <header class="pos-header mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex align-items-center">
+        <h2 class="mb-0"><i data-feather="shopping-cart"></i> POS Sistema</h2>
+        
+        <!-- Estado de la caja -->
+        {% if turno_abierto %}
+        <span class="caja-status caja-abierta ms-3">
+          <i data-feather="check-circle" width="14" height="14"></i> 
+          Caja Abierta #{{ turno_abierto.id }}
+          <small class="ms-2">Desde: {{ turno_abierto.fecha_apertura|format_datetime('short') }}</small>
+        </span>
+        {% else %}
+        <span class="caja-status caja-cerrada ms-3">
+          <i data-feather="x-circle" width="14" height="14"></i> 
+          Caja Cerrada
+        </span>
+        {% endif %}
+        
+        <!-- Notificación rápida de órdenes listas -->
+        <div class="ms-3 position-relative">
+          <button class="btn btn-sm btn-warning btn-notificaciones" onclick="mostrarNotificacionesRapidas()">
+            <i data-feather="bell"></i>
+            <span id="notificacionRapida" class="notificacion-badge" style="display: none;">0</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="d-flex align-items-center">
+        <!-- Información de usuario y botón Cerrar Sesión -->
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center" 
+                  type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i data-feather="user" class="me-1" width="16" height="16"></i>
+            {{ usuario.nombre if usuario else 'Usuario' }}
+            <small class="ms-1 badge bg-secondary">{{ usuario.rol if usuario else '' }}</small>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item text-danger" href="/logout">
+                <i data-feather="log-out" class="me-2"></i> Cerrar Sesión
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <small class="text-muted me-3 ms-3">
+          <i data-feather="clock"></i> {{ ahora.strftime('%H:%M') if ahora else '' }}
+        </small>
+      </div>
+    </div>
+    
+    <!-- BARRA DE NAVEGACIÓN COMPLETA -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light rounded p-2">
+      <div class="container-fluid">
+        <div class="navbar-nav d-flex flex-row gap-2 w-100">
+          <!-- Botón principal de Caja -->
+          <a class="nav-link btn btn-outline-primary btn-sm active" 
+             href="/">
+            <i data-feather="home"></i> Caja
+          </a>
+          
+          <!-- Mesas -->
+          <a class="nav-link btn btn-info btn-sm" 
+             href="/mesas">
+            <i data-feather="grid"></i> Mesas
+          </a>
+          
+          <!-- Productos -->
+          <a class="nav-link btn btn-outline-primary btn-sm" 
+             href="/productos">
+            <i data-feather="package"></i> Productos
+          </a>
+          
+          <!-- Órdenes (para mozos) -->
+          {% if usuario and usuario.rol in ['mozo', 'admin', 'cajero'] %}
+          <a class="nav-link btn btn-outline-success btn-sm" 
+             href="/ordenes">
+            <i data-feather="coffee"></i> Órdenes
+            <span id="ordenesPendientesBadge" class="badge bg-danger ms-1" style="display: none;">0</span>
+          </a>
+          {% endif %}
+          
+          <!-- Chef (solo para chef y admin) -->
+          {% if usuario and usuario.rol in ['chef', 'admin'] %}
+          <a class="nav-link btn btn-outline-warning btn-sm" 
+             href="/chef">
+            <i data-feather="clock"></i> Cocina
+          </a>
+          {% endif %}
+          
+          <!-- Proveedores -->
+          <a class="nav-link btn btn-outline-info btn-sm" 
+             href="/proveedores">
+            <i data-feather="truck"></i> Proveedores
+          </a>
+          
+          <!-- Historial de Caja -->
+          <a class="nav-link btn btn-warning btn-sm" 
+             href="/historial_caja">
+            <i data-feather="archive"></i> Historial
+          </a>
+          
+          <!-- Ventas -->
+          <a class="nav-link btn btn-outline-success btn-sm" 
+             href="/ventas">
+            <i data-feather="dollar-sign"></i> Ventas
+          </a>
+          
+          <!-- Botón de Cerrar Caja (solo si hay caja abierta) -->
+          {% if turno_abierto %}
+          <button class="nav-link btn btn-danger btn-sm ms-auto" 
+             onclick="confirmarCierreCaja()">
+            <i data-feather="lock"></i> Cerrar Caja
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- MENSAJE DE ESTADO -->
+  <div id="statusMessage" class="mb-3"></div>
+  
+  <!-- Notificaciones toast -->
+  <div id="notificacionesContainer"></div>
+
+  <div class="card pos-card">
+    <div class="row gx-3">
+      
+      <!-- IZQUIERDA - BUSCADOR DE ÓRDENES Y CARRITO -->
+      <div class="col-lg-7">
+        <!-- BUSCADOR DE ÓRDENES -->
+        <div class="mb-3">
+          <div class="input-group">
+            <input id="ordenInput" class="form-control" 
+                   placeholder="Buscar orden por número, mesa o mozo..." 
+                   {% if not turno_abierto %}disabled{% endif %}
+                   autofocus>
+            <button class="btn btn-primary" id="buscarOrdenBtn" {% if not turno_abierto %}disabled{% endif %}>
+              <i data-feather="search"></i> Buscar
+            </button>
+          </div>
+          <div class="form-text">
+            {% if not turno_abierto %}
+            <span class="text-danger">❌ La caja está cerrada. Cierre sesión y vuelva a ingresar.</span>
+            {% else %}
+            <span class="text-success">✅ Busque órdenes abiertas para cobrar</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- RESULTADOS DE BÚSQUEDA DE ÓRDENES -->
+        <div id="ordenesResultados" class="mt-3" style="display: none;">
+          <h6>Órdenes Encontradas</h6>
+          <div id="ordenesList" class="list-group">
+            <!-- Las órdenes se mostrarán aquí -->
+          </div>
+        </div>
+
+        <!-- ÓRDENES ABIERTAS RECIENTES -->
+        {% if ordenes_abiertas %}
+        <div class="mt-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6>Órdenes Abiertas Recientes</h6>
+            <small class="text-muted" id="contadorOrdenesAbiertas">{{ ordenes_abiertas|length }} orden(es)</small>
+          </div>
+          <div class="list-group" id="listaOrdenesAbiertas">
+            {% for orden in ordenes_abiertas %}
+            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                 onclick="seleccionarOrden({{ orden.id }}, {{ orden.total }})">
+              <div>
+                <strong>Orden #{{ orden.id }}</strong>
+                <br>
+                <small>Mesa {{ orden.mesa_numero }} • {{ orden.mozo_nombre }}</small>
+              </div>
+              <div class="text-end">
+                <span class="badge bg-primary rounded-pill">${{ "%.2f"|format(orden.total) }}</span>
+                <br>
+                <small class="text-muted">Clic para cobrar</small>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="mt-3">
+          <div class="alert alert-info">
+            <i data-feather="info"></i> No hay órdenes abiertas en este momento.
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- CARRITO DE COMPRAS (ahora para productos sueltos si se necesitan) -->
+        <div class="mt-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">
+              <i data-feather="shopping-bag"></i> Carrito de Productos Sueltos
+            </h5>
+            <small class="text-muted" id="cartCount">0 productos</small>
+          </div>
+          <div id="itemsList" class="items-list">
+            <div class="empty-note">
+              <i data-feather="shopping-cart" width="48" height="48"></i><br>
+              No hay productos en el carrito
+              {% if not turno_abierto %}<br><small class="text-danger">Caja cerrada</small>{% endif %}
+            </div>
+          </div>
+
+          <!-- BUSCADOR DE PRODUCTOS PARA VENTAS SUELTAS -->
+          <div class="mt-3">
+            <div class="input-group">
+              <input id="productoInput" class="form-control" 
+                     placeholder="Código de producto para venta suelta..." 
+                     {% if not turno_abierto %}disabled{% endif %}>
+              <button class="btn btn-outline-secondary" id="agregarProductoBtn" {% if not turno_abierto %}disabled{% endif %}>
+                <i data-feather="plus"></i> Agregar
+              </button>
+            </div>
+            <small class="form-text text-muted">
+              Use este campo solo para productos sueltos (sin orden)
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- DERECHA - RESUMEN Y PAGO -->
+      <div class="col-lg-5">
+        <div class="sale-summary p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">
+              <i data-feather="dollar-sign"></i> Resumen de Pago
+            </h5>
+            <!-- Estado del turno -->
+            <div class="text-end">
+              <small class="text-muted d-block">Turno #{{ turno_abierto.id if turno_abierto else 'Cerrado' }}</small>
+              <small class="text-muted">Total Ventas: <strong>${{ "%.2f"|format(turno_abierto.total_ventas) if turno_abierto and turno_abierto.total_ventas else '0.00' }}</strong></small>
+            </div>
+          </div>
+
+          <!-- INFO DE ORDEN ACTUAL -->
+          <div id="ordenInfo" class="alert alert-info mb-3" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong id="ordenNumero"></strong><br>
+                <small id="ordenDetalle"></small>
+              </div>
+              <div>
+                <span id="estadoOrden" class="badge-estado-orden estado-pendiente">Pendiente</span>
+                <button class="btn btn-sm btn-outline-danger ms-2" onclick="limpiarOrden()">
+                  <i data-feather="x"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TOTALES -->
+          <div class="summary-rows mb-3">
+            <div class="row mb-2">
+              <div class="col">Subtotal</div>
+              <div class="col text-end" id="subtotal">$0.00</div>
+            </div>
+            <div class="row mb-2">
+              <div class="col">IVA (21%)</div>
+              <div class="col text-end" id="iva">$0.00</div>
+            </div>
+            <div class="row grand mt-2 pt-2 border-top">
+              <div class="col"><strong>Total a Pagar</strong></div>
+              <div class="col text-end"><strong id="total">$0.00</strong></div>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- MÉTODO DE PAGO -->
+          <div class="mb-3">
+            <label class="form-label">
+              <i data-feather="credit-card"></i> Método de pago
+            </label>
+            <select id="paymentMethod" class="form-select" {% if not turno_abierto %}disabled{% endif %}>
+              <option value="Efectivo"> Efectivo</option>
+              <option value="Tarjeta"> Tarjeta</option>
+              <option value="Transferencia"> Transferencia</option>
+              <option value="MercadoPago"> Mercado Pago</option>
+            </select>
+          </div>
+
+          <!-- MONTO RECIBIDO (solo para efectivo) -->
+          <div class="mb-3" id="cashSection" style="display: none;">
+            <label class="form-label">
+              <i data-feather="cash"></i> Monto recibido
+            </label>
+            <input id="amountReceived" type="number" class="form-control" 
+                   placeholder="0.00" min="0" step="0.01"
+                   {% if not turno_abierto %}disabled{% endif %}>
+          </div>
+
+          <!-- CAMBIO -->
+          <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+            <strong>
+              <i data-feather="refresh-cw"></i> Cambio
+            </strong>
+            <strong id="changeAmount" class="fs-5">$0.00</strong>
+          </div>
+
+          <!-- BOTONES DE ACCIÓN -->
+          <div class="d-grid gap-2">
+            <button id="completeSale" class="btn btn-success btn-lg" 
+                    {% if not turno_abierto %}disabled{% endif %}>
+              <i data-feather="check-circle"></i> Completar Venta
+            </button>
+
+            <button id="clearCart" class="btn btn-outline-danger">
+              <i data-feather="trash-2"></i> Limpiar Carrito
+            </button>
+
+            {% if not turno_abierto %}
+            <div class="alert alert-warning">
+              <i data-feather="alert-triangle"></i> 
+              La caja está cerrada. Para operar, cierre sesión y vuelva a ingresar.
+            </div>
+            {% endif %}
+            
+            <!-- Botón para actualizar estados de órdenes -->
+            <button id="actualizarEstadosBtn" class="btn btn-outline-info" onclick="actualizarEstadosOrdenes()">
+              <i data-feather="refresh-cw"></i> Actualizar Estados
+            </button>
+          </div>
+
+          <!-- MENSAJES DEL SISTEMA -->
+          <div id="posMessage" class="mt-3 small"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
+
+// Carrito vacío inicial
+window.cart = [];
+window.ordenActual = null;
+window.totalOrden = 0;
+window.ordenEstado = 'pendiente';
+
+// Obtener datos del turno desde atributos data
+const appData = document.getElementById('app-data');
+window.turnoAbierto = {{ 'true' if turno_abierto else 'false' }};
+window.usuarioRol = appData.dataset.usuarioRol;
+
+// Notificaciones
+let notificaciones = [];
+
+// ============================================
+// CAPTURAR ORDEN DESDE LA URL
+// ============================================
+
+function obtenerOrdenIdDeURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ordenId = urlParams.get('orden_id');
+    return ordenId ? parseInt(ordenId) : null;
+}
+
+// Función para cargar automáticamente la orden si viene en la URL
+async function cargarOrdenDesdeURL() {
+    const ordenId = obtenerOrdenIdDeURL();
+    if (ordenId && !window.ordenActual) {
+        try {
+            // Obtener detalles de la orden
+            const response = await fetch(`/api/orden_detalle/${ordenId}`);
+            if (response.ok) {
+                const orden = await response.json();
+                
+                // Seleccionar la orden automáticamente
+                window.ordenActual = orden.id;
+                window.totalOrden = orden.total;
+                window.ordenEstado = orden.estado;
+                
+                // Mostrar información de la orden
+                const ordenInfo = document.getElementById('ordenInfo');
+                ordenInfo.style.display = 'block';
+                document.getElementById('ordenNumero').textContent = `Orden #${orden.id}`;
+                document.getElementById('ordenDetalle').textContent = `Mesa ${orden.mesa_numero} • ${orden.mozo_nombre} • Total: $${orden.total.toFixed(2)}`;
+                
+                // Actualizar estado visual
+                const estadoElement = document.getElementById('estadoOrden');
+                if (estadoElement) {
+                    estadoElement.textContent = orden.estado || 'Pendiente';
+                    estadoElement.className = `badge-estado-orden estado-${orden.estado || 'pendiente'}`;
+                }
+                
+                // Actualizar total en el resumen
+                const subtotal = orden.total;
+                const iva = subtotal * 0.21;
+                const total = subtotal + iva;
+                
+                document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+                document.getElementById('iva').textContent = `$${iva.toFixed(2)}`;
+                document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+                
+                // Actualizar carrito
+                document.getElementById('cartCount').textContent = '1 orden';
+                
+                // Mostrar items de la orden en el carrito
+                let itemsHtml = `
+                    <div class="cart-item mb-3 p-2 border rounded" style="background-color: #f0f9ff; border-left: 4px solid #007bff;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="flex-grow-1">
+                                <strong>Orden #${orden.id} - Mesa ${orden.mesa_numero}</strong><br>
+                                <small class="text-muted">
+                                    Mozo: ${orden.mozo_nombre} • Total: <strong>$${orden.total.toFixed(2)}</strong>
+                                </small>
+                            </div>
+                            <div class="cart-item-controls">
+                                <button class="btn btn-sm btn-outline-danger" onclick="limpiarOrden()" title="Eliminar">
+                                    <i data-feather="trash" width="14"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">Estado: <span class="badge-estado-orden estado-${orden.estado || 'pendiente'}">${orden.estado || 'Pendiente'}</span></small>
+                        </div>
+                    </div>
+                `;
+                
+                // Agregar items individuales
+                if (orden.items && orden.items.length > 0) {
+                    itemsHtml += '<div style="max-height: 200px; overflow-y: auto;">';
+                    orden.items.forEach((item, index) => {
+                        const itemTotal = item.precio_unitario * item.cantidad;
+                        itemsHtml += `
+                            <div class="mt-2 p-2 bg-light rounded">
+                                <div class="d-flex justify-content-between">
+                                    <small><strong>${item.cantidad}x ${item.producto_nombre}</strong></small>
+                                    <small>$${itemTotal.toFixed(2)}</small>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">$${item.precio_unitario.toFixed(2)} c/u</small>
+                                    ${item.observaciones ? `<small class="text-muted"><i>${item.observaciones}</i></small>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    itemsHtml += '</div>';
+                }
+                
+                document.getElementById('itemsList').innerHTML = itemsHtml;
+                feather.replace();
+                
+                mostrarMensajeSistema(`✅ Orden #${orden.id} cargada automáticamente desde enlace`, 'success');
+                
+                calcularCambio();
+            } else {
+                mostrarMensajeSistema(`❌ Orden #${ordenId} no encontrada`, 'error');
+            }
+        } catch (error) {
+            console.error('Error cargando orden desde URL:', error);
+            mostrarMensajeSistema('❌ Error al cargar la orden', 'error');
+        }
+    }
+}
+
+// ============================================
+// FUNCIONES AUXILIARES
+// ============================================
+
+function confirmarCierreCaja() {
+    if (confirm('¿Está seguro de cerrar la caja? Se mostrará un informe y volverá al login.')) {
+        window.location.href = '/cerrar_caja';
+    }
+}
+
+// ============================================
+// FUNCIONES DE SONIDO
+// ============================================
+
+function reproducirSonidoVenta() {
+    // Sonido de caja registradora
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Sonido característico de caja
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.4);
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 400);
+    } catch (e) {
+        console.log("Audio no disponible");
+    }
+}
+
+function reproducirSonidoBeep() {
+    // Sonido de beep para escanear
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 1200;
+        gainNode.gain.value = 0.1;
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 100);
+    } catch (e) {
+        console.log("Audio no disponible");
+    }
+}
+
+function reproducirSonidoError() {
+    // Sonido para errores
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(300, audioContext.currentTime + 0.2);
+        
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime + 0.2);
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 300);
+    } catch (e) {
+        console.log("Audio no disponible");
+    }
+}
+
+function reproducirSonidoNotificacion() {
+    // Sonido para notificaciones
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
+        
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.15, audioContext.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime + 0.2);
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 300);
+    } catch (e) {
+        console.log("Audio no disponible");
+    }
+}
+
+// ============================================
+// FUNCIONES PARA NOTIFICACIONES
+// ============================================
+
+async function cargarNotificaciones() {
+    if (window.usuarioRol !== 'mozo' && window.usuarioRol !== 'admin' && window.usuarioRol !== 'cajero') {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/notificaciones_mozo');
+        if (!response.ok) return;
+        
+        notificaciones = await response.json();
+        actualizarContadorNotificaciones();
+        
+        // Mostrar toast para nuevas notificaciones
+        notificaciones.forEach(notif => {
+            mostrarNotificacionToast(notif.mensaje);
+        });
+        
+    } catch (error) {
+        console.error('Error cargando notificaciones:', error);
+    }
+}
+
+function actualizarContadorNotificaciones() {
+    const contadorRapido = document.getElementById('notificacionRapida');
+    const contadorOrdenes = document.getElementById('ordenesPendientesBadge');
+    
+    if (notificaciones.length > 0) {
+        contadorRapido.textContent = notificaciones.length;
+        contadorRapido.style.display = 'flex';
+        
+        if (contadorOrdenes) {
+            contadorOrdenes.textContent = notificaciones.length;
+            contadorOrdenes.style.display = 'inline-block';
+        }
+    } else {
+        contadorRapido.style.display = 'none';
+        if (contadorOrdenes) {
+            contadorOrdenes.style.display = 'none';
+        }
+    }
+}
+
+function mostrarNotificacionToast(mensaje) {
+    const container = document.getElementById('notificacionesContainer');
+    const toastId = 'toast-' + Date.now();
+    
+    const toastHtml = `
+        <div id="${toastId}" class="notificacion-toast alert alert-success alert-dismissible fade show" role="alert">
+            <i data-feather="bell"></i> ${mensaje}
+            <button type="button" class="btn-close" onclick="document.getElementById('${toastId}').remove()"></button>
+        </div>
+    `;
+    
+    container.innerHTML = toastHtml + container.innerHTML;
+    feather.replace();
+    
+    // Reproducir sonido
+    reproducirSonidoNotificacion();
+    
+    // Auto-eliminar después de 5 segundos
+    setTimeout(() => {
+        const toast = document.getElementById(toastId);
+        if (toast) toast.remove();
+    }, 5000);
+}
+
+function mostrarNotificacionesRapidas() {
+    if (notificaciones.length === 0) {
+        alert('No hay notificaciones nuevas');
+        return;
+    }
+    
+    let mensaje = 'Notificaciones recientes:\n\n';
+    notificaciones.forEach(notif => {
+        mensaje += `• ${notif.mensaje}\n`;
+    });
+    
+    alert(mensaje);
+    
+    // Resetear contador
+    notificaciones = [];
+    actualizarContadorNotificaciones();
+}
+
+// ============================================
+// FUNCIONES PARA BUSCAR ÓRDENES
+// ============================================
+
+async function buscarOrdenes() {
+    const search = document.getElementById('ordenInput').value.trim();
+    
+    if (!search) {
+        document.getElementById('ordenesResultados').style.display = 'none';
+        return;
+    }
+    
+    try {
+        // Usar endpoint existente de órdenes activas
+        const response = await fetch('/api/ordenes_activas');
+        const ordenes = await response.json();
+        
+        // Filtrar localmente
+        const searchLower = search.toLowerCase();
+        const ordenesFiltradas = ordenes.filter(orden => 
+            orden.id.toString().includes(search) ||
+            orden.mesa_numero.toString().includes(search) ||
+            orden.mozo_nombre.toLowerCase().includes(searchLower)
+        );
+        
+        mostrarOrdenesResultados(ordenesFiltradas);
+    } catch (error) {
+        console.error('Error buscando órdenes:', error);
+        mostrarMensajeSistema('❌ Error buscando órdenes', 'error');
+    }
+}
+
+function mostrarOrdenesResultados(ordenes) {
+    const container = document.getElementById('ordenesList');
+    const resultadosDiv = document.getElementById('ordenesResultados');
+    
+    if (!ordenes || ordenes.length === 0) {
+        container.innerHTML = `
+            <div class="list-group-item text-center text-muted">
+                <i data-feather="search" width="24" height="24"></i>
+                <br>
+                No se encontraron órdenes
+            </div>
+        `;
+        resultadosDiv.style.display = 'block';
+        feather.replace();
+        return;
+    }
+    
+    let html = '';
+    
+    ordenes.forEach(orden => {
+        html += `
+            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                 onclick="seleccionarOrden(${orden.id}, ${orden.total})">
+                <div>
+                    <strong>Orden #${orden.id}</strong>
+                    <br>
+                    <small>Mesa ${orden.mesa_numero} • ${orden.mozo_nombre}</small>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-primary rounded-pill">$${orden.total.toFixed(2)}</span>
+                    <br>
+                    <small class="text-muted">${orden.items_count} items</small>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    resultadosDiv.style.display = 'block';
+    feather.replace();
+}
+
+// ============================================
+// FUNCIÓN PARA VERIFICAR STOCK EN TIEMPO REAL
+// ============================================
+
+async function verificarStockDisponible(productoId, cantidadNecesaria) {
+    try {
+        const response = await fetch(`/api/productos`);
+        const productos = await response.json();
+        
+        const producto = productos.find(p => p.id === productoId);
+        
+        if (!producto) {
+            return { disponible: false, mensaje: 'Producto no encontrado' };
+        }
+        
+        if (producto.stock >= cantidadNecesaria) {
+            return { 
+                disponible: true, 
+                stockActual: producto.stock,
+                mensaje: `Stock disponible: ${producto.stock}` 
+            };
+        } else {
+            return { 
+                disponible: false, 
+                stockActual: producto.stock,
+                mensaje: `Stock insuficiente. Disponible: ${producto.stock}` 
+            };
+        }
+    } catch (error) {
+        console.error('Error verificando stock:', error);
+        return { disponible: false, mensaje: 'Error verificando stock' };
+    }
+}
+
+// ============================================
+// FUNCIÓN PARA ACTUALIZAR ESTADOS DE ÓRDENES
+// ============================================
+
+async function actualizarEstadosOrdenes() {
+    if (window.ordenActual) {
+        // Actualizar el estado de la orden actual
+        try {
+            // Usar endpoint existente para obtener órdenes activas
+            const response = await fetch('/api/ordenes_activas');
+            const ordenes = await response.json();
+            
+            const ordenActual = ordenes.find(o => o.id === window.ordenActual);
+            
+            if (ordenActual) {
+                window.ordenEstado = ordenActual.estado || 'pendiente';
+                
+                // Actualizar visual del estado
+                const estadoElement = document.getElementById('estadoOrden');
+                if (estadoElement) {
+                    estadoElement.textContent = ordenActual.estado || 'Pendiente';
+                    estadoElement.className = `badge-estado-orden estado-${ordenActual.estado || 'pendiente'}`;
+                }
+                
+                mostrarMensajeSistema('✅ Estados actualizados', 'success');
+            }
+        } catch (error) {
+            console.error('Error actualizando estados:', error);
+            mostrarMensajeSistema('❌ Error actualizando estados', 'error');
+        }
+    } else {
+        // Actualizar lista de órdenes abiertas
+        try {
+            const response = await fetch('/api/ordenes_activas');
+            const ordenes = await response.json();
+            
+            // Actualizar la vista si hay cambios
+            const listaOrdenes = document.getElementById('listaOrdenesAbiertas');
+            const contadorOrdenes = document.getElementById('contadorOrdenesAbiertas');
+            
+            if (listaOrdenes && ordenes.length > 0) {
+                let html = '';
+                ordenes.forEach(orden => {
+                    html += `
+                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                             onclick="seleccionarOrden(${orden.id}, ${orden.total})">
+                            <div>
+                                <strong>Orden #${orden.id}</strong>
+                                <br>
+                                <small>Mesa ${orden.mesa_numero} • ${orden.mozo_nombre}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-primary rounded-pill">$${orden.total.toFixed(2)}</span>
+                                <br>
+                                <small class="badge-estado-orden estado-${orden.estado || 'pendiente'}">${orden.estado || 'Pendiente'}</small>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                listaOrdenes.innerHTML = html;
+                if (contadorOrdenes) {
+                    contadorOrdenes.textContent = `${ordenes.length} orden(es)`;
+                }
+            }
+            
+            mostrarMensajeSistema('✅ Lista de órdenes actualizada', 'success');
+        } catch (error) {
+            console.error('Error actualizando lista de órdenes:', error);
+            mostrarMensajeSistema('❌ Error actualizando lista', 'error');
+        }
+    }
+}
+
+// ============================================
+// CONFIGURACIÓN DE LA PÁGINA
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    feather.replace();
+    
+    // Mostrar mensaje inicial
+    mostrarMensajeSistema('✅ Sistema POS cargado correctamente', 'success');
+    
+    // Cargar orden desde URL si existe (ESTA ES LA LÍNEA IMPORTANTE)
+    cargarOrdenDesdeURL();
+    
+    // Cargar notificaciones iniciales
+    if (window.usuarioRol === 'mozo' || window.usuarioRol === 'admin' || window.usuarioRol === 'cajero') {
+        cargarNotificaciones();
+    }
+    
+    // Configurar buscador de órdenes
+    const buscarOrdenBtn = document.getElementById('buscarOrdenBtn');
+    if (buscarOrdenBtn) {
+        buscarOrdenBtn.addEventListener('click', buscarOrdenes);
+    }
+    
+    const ordenInput = document.getElementById('ordenInput');
+    if (ordenInput) {
+        ordenInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                buscarOrdenes();
+            }
+        });
+    }
+    
+    // Configurar buscador de productos para ventas sueltas
+    const agregarProductoBtn = document.getElementById('agregarProductoBtn');
+    if (agregarProductoBtn) {
+        agregarProductoBtn.addEventListener('click', function() {
+            const codigo = document.getElementById('productoInput').value.trim();
+            if (codigo) {
+                agregarProductoSuelto(codigo);
+                document.getElementById('productoInput').value = '';
+            }
+        });
+    }
+    
+    const productoInput = document.getElementById('productoInput');
+    if (productoInput) {
+        productoInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const codigo = this.value.trim();
+                if (codigo) {
+                    agregarProductoSuelto(codigo);
+                    this.value = '';
+                }
+            }
+        });
+    }
+    
+    // Configurar método de pago
+    const paymentMethod = document.getElementById('paymentMethod');
+    const cashSection = document.getElementById('cashSection');
+    const amountReceived = document.getElementById('amountReceived');
+    
+    function actualizarSeccionEfectivo() {
+        if (paymentMethod.value === 'Efectivo') {
+            cashSection.style.display = 'block';
+            if (amountReceived) amountReceived.disabled = false;
+            calcularCambio();
+        } else {
+            cashSection.style.display = 'none';
+            if (amountReceived) amountReceived.disabled = true;
+            document.getElementById('changeAmount').textContent = '$0.00';
+        }
+    }
+    
+    if (paymentMethod) {
+        paymentMethod.addEventListener('change', actualizarSeccionEfectivo);
+        actualizarSeccionEfectivo();
+    }
+    
+    // Configurar input de monto recibido
+    if (amountReceived) {
+        amountReceived.addEventListener('input', calcularCambio);
+    }
+    
+    // Configurar botón de completar venta
+    const completeSale = document.getElementById('completeSale');
+    if (completeSale) {
+        completeSale.addEventListener('click', procesarVenta);
+    }
+    
+    // Configurar botón de limpiar carrito
+    const clearCart = document.getElementById('clearCart');
+    if (clearCart) {
+        clearCart.addEventListener('click', function() {
+            if (window.cart.length > 0 || window.ordenActual) {
+                if (confirm('¿Limpiar todo el carrito y quitar orden seleccionada?')) {
+                    window.cart = [];
+                    window.ordenActual = null;
+                    window.totalOrden = 0;
+                    window.ordenEstado = 'pendiente';
+                    
+                    actualizarCarrito();
+                    limpiarOrden();
+                    reproducirSonidoBeep();
+                    mostrarMensajeSistema('🛒 Carrito limpiado completamente', 'info');
+                }
+            }
+        });
+    }
+    
+    // Configurar polling para notificaciones (cada 30 segundos)
+    if (window.usuarioRol === 'mozo' || window.usuarioRol === 'admin' || window.usuarioRol === 'cajero') {
+        setInterval(cargarNotificaciones, 30000);
+    }
+    
+    console.log('✅ Sistema POS inicializado correctamente');
+});
+
+// ============================================
+// FUNCIONES PARA VENTAS SUELTAS (PRODUCTOS)
+// ============================================
+
+function buscarProducto(codigo) {
+    return new Promise((resolve, reject) => {
+        fetch('/api/productos')
+            .then(response => response.json())
+            .then(productos => {
+                // Buscar por código de barras o ID
+                const producto = productos.find(p => 
+                    p.codigo_barra === codigo || p.id.toString() === codigo
+                );
+                
+                if (producto) {
+                    resolve(producto);
+                } else {
+                    reject('Producto no encontrado');
+                }
+            })
+            .catch(error => reject('Error cargando productos'));
+    });
+}
+
+async function agregarProductoSuelto(codigo) {
+    // Solo permitir si la caja está abierta
+    if (!window.turnoAbierto) {
+        mostrarMensajeSistema('❌ La caja está cerrada. No se pueden agregar productos.', 'error');
+        reproducirSonidoError();
+        return false;
+    }
+    
+    if (window.ordenActual) {
+        mostrarMensajeSistema('❌ Tiene una orden seleccionada. Limpie primero para agregar productos sueltos.', 'error');
+        reproducirSonidoError();
+        return false;
+    }
+    
+    try {
+        const producto = await buscarProducto(codigo);
+        
+        // Verificar stock ANTES de agregar al carrito
+        const verifStock = await verificarStockDisponible(producto.id, 1);
+        
+        if (!verifStock.disponible) {
+            mostrarMensajeSistema(`❌ ${producto.nombre}: ${verifStock.mensaje}`, 'error');
+            reproducirSonidoError();
+            return false;
+        }
+        
+        // Verificar si ya está en el carrito (por ID)
+        const itemExistente = window.cart.find(item => item.id === producto.id);
+        
+        if (itemExistente) {
+            // Si ya existe, verificar stock para la nueva cantidad
+            const nuevaCantidad = itemExistente.cantidad + 1;
+            const verifStockNuevo = await verificarStockDisponible(producto.id, nuevaCantidad);
+            
+            if (verifStockNuevo.disponible) {
+                itemExistente.cantidad = nuevaCantidad;
+                mostrarMensajeSistema(`➕ ${producto.nombre} cantidad aumentada a ${nuevaCantidad}`, 'info');
+                reproducirSonidoBeep();
+            } else {
+                mostrarMensajeSistema(`❌ ${producto.nombre}: ${verifStockNuevo.mensaje}`, 'error');
+                reproducirSonidoError();
+                return false;
+            }
+        } else {
+            // Agregar nuevo producto al carrito
+            window.cart.push({
+                id: producto.id,
+                codigo: producto.codigo_barra,
+                nombre: producto.nombre,
+                precio: producto.precio,
+                cantidad: 1
+            });
+            mostrarMensajeSistema(`✅ ${producto.nombre} agregado al carrito`, 'success');
+            reproducirSonidoBeep();
+        }
+        
+        actualizarCarrito();
+        return true;
+        
+    } catch (error) {
+        mostrarMensajeSistema(`❌ ${error}`, 'error');
+        reproducirSonidoError();
+        return false;
+    }
+}
+
+function actualizarCarrito() {
+    const itemsList = document.getElementById('itemsList');
+    const cartCount = document.getElementById('cartCount');
+    const subtotalElement = document.getElementById('subtotal');
+    const ivaElement = document.getElementById('iva');
+    const totalElement = document.getElementById('total');
+    
+    // Si hay una orden, no mostrar productos sueltos
+    if (window.ordenActual) {
+        calcularCambio();
+        return;
+    }
+    
+    if (!window.cart || window.cart.length === 0) {
+        itemsList.innerHTML = `
+            <div class="empty-note">
+                <i data-feather="shopping-cart" width="48" height="48"></i><br>
+                No hay productos en el carrito
+            </div>
+        `;
+        cartCount.textContent = '0 productos';
+        subtotalElement.textContent = '$0.00';
+        ivaElement.textContent = '$0.00';
+        totalElement.textContent = '$0.00';
+        feather.replace();
+        calcularCambio();
+        return;
+    }
+    
+    let subtotal = 0;
+    let html = '';
+    
+    // Mostrar cada producto con su stock actualizado
+    window.cart.forEach(async (item, index) => {
+        const itemTotal = item.precio * item.cantidad;
+        subtotal += itemTotal;
+        
+        // Obtener stock actualizado para este producto
+        let stockInfo = 'Cargando stock...';
+        try {
+            const verifStock = await verificarStockDisponible(item.id, 1);
+            stockInfo = `Stock: ${verifStock.stockActual}`;
+        } catch (error) {
+            stockInfo = 'Error cargando stock';
+        }
+        
+        html += `
+            <div class="cart-item mb-3 p-2 border rounded">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-grow-1">
+                        <strong>${item.nombre}</strong><br>
+                        <small class="text-muted">
+                            $${item.precio.toFixed(2)} x ${item.cantidad} = <strong>$${itemTotal.toFixed(2)}</strong><br>
+                            <small>${stockInfo}</small>
+                        </small>
+                    </div>
+                    <div class="cart-item-controls d-flex align-items-center">
+                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="modificarCantidad(${index}, -1)" title="Reducir">
+                            <i data-feather="minus" width="14"></i>
+                        </button>
+                        <span class="mx-2 fw-bold">${item.cantidad}</span>
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="modificarCantidad(${index}, 1)" title="Aumentar">
+                            <i data-feather="plus" width="14"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="eliminarDelCarrito(${index})" title="Eliminar">
+                            <i data-feather="trash" width="14"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-1">
+                    <small class="text-muted">Código: ${item.codigo || 'N/A'}</small>
+                </div>
+            </div>
+        `;
+        
+        // Actualizar el HTML inmediatamente
+        itemsList.innerHTML = html;
+        feather.replace();
+    });
+    
+    const iva = subtotal * 0.21;
+    const total = subtotal + iva;
+    
+    // Calcular total de items (sumando cantidades)
+    const totalItems = window.cart.reduce((sum, item) => sum + item.cantidad, 0);
+    cartCount.textContent = `${totalItems} producto${totalItems !== 1 ? 's' : ''}`;
+    
+    subtotalElement.textContent = `$${subtotal.toFixed(2)}`;
+    ivaElement.textContent = `$${iva.toFixed(2)}`;
+    totalElement.textContent = `$${total.toFixed(2)}`;
+    
+    calcularCambio();
+}
+
+async function modificarCantidad(index, cambio) {
+    // Solo permitir si la caja está abierta
+    if (!window.turnoAbierto) {
+        mostrarMensajeSistema('❌ La caja está cerrada.', 'error');
+        return;
+    }
+    
+    // Si hay una orden, no permitir modificar productos sueltos
+    if (window.ordenActual) {
+        mostrarMensajeSistema('❌ Tiene una orden seleccionada. Limpie primero para modificar productos.', 'error');
+        return;
+    }
+    
+    if (window.cart[index]) {
+        const producto = window.cart[index];
+        const nuevaCantidad = producto.cantidad + cambio;
+        
+        if (nuevaCantidad <= 0) {
+            eliminarDelCarrito(index);
+        } else {
+            // Verificar stock para la nueva cantidad
+            const verifStock = await verificarStockDisponible(producto.id, nuevaCantidad);
+            
+            if (verifStock.disponible) {
+                window.cart[index].cantidad = nuevaCantidad;
+                actualizarCarrito();
+                reproducirSonidoBeep();
+            } else {
+                mostrarMensajeSistema(`❌ ${producto.nombre}: ${verifStock.mensaje}`, 'error');
+                reproducirSonidoError();
+            }
+        }
+    }
+}
+
+function eliminarDelCarrito(index) {
+    // Solo permitir si la caja está abierta
+    if (!window.turnoAbierto) {
+        mostrarMensajeSistema('❌ La caja está cerrada.', 'error');
+        return;
+    }
+    
+    // Si hay una orden, no permitir eliminar productos sueltos
+    if (window.ordenActual) {
+        mostrarMensajeSistema('❌ Tiene una orden seleccionada. Limpie primero para eliminar productos.', 'error');
+        return;
+    }
+    
+    if (window.cart[index]) {
+        const productoNombre = window.cart[index].nombre;
+        window.cart.splice(index, 1);
+        actualizarCarrito();
+        mostrarMensajeSistema(`🗑️ ${productoNombre} eliminado`, 'info');
+        reproducirSonidoBeep();
+    }
+}
+
+function calcularCambio() {
+    const changeAmount = document.getElementById('changeAmount');
+    if (!changeAmount) return;
+    
+    if (document.getElementById('paymentMethod').value !== 'Efectivo') {
+        changeAmount.textContent = '$0.00';
+        return;
+    }
+    
+    const total = parseFloat(document.getElementById('total').textContent.replace('$', '')) || 0;
+    const recibido = parseFloat(document.getElementById('amountReceived').value) || 0;
+    
+    if (recibido >= total) {
+        const cambio = recibido - total;
+        changeAmount.textContent = `$${cambio.toFixed(2)}`;
+        changeAmount.className = 'fs-5 text-success';
+    } else {
+        changeAmount.textContent = `$${(recibido - total).toFixed(2)}`;
+        changeAmount.className = 'fs-5 text-danger';
+    }
+}
+
+// ============================================
+// FUNCIONES AUXILIARES
+// ============================================
+
+function mostrarMensajeSistema(texto, tipo = 'info') {
+    const posMessage = document.getElementById('posMessage');
+    if (!posMessage) return;
+    
+    // Limpiar mensajes anteriores
+    posMessage.innerHTML = '';
+    
+    // Crear nuevo mensaje
+    const alertClass = tipo === 'error' ? 'danger' : tipo === 'success' ? 'success' : tipo === 'warning' ? 'warning' : 'info';
+    
+    posMessage.innerHTML = `
+        <div class="alert alert-${alertClass} alert-dismissible fade show mb-0">
+            ${texto}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Auto-ocultar después de 5 segundos
+    setTimeout(() => {
+        if (posMessage.innerHTML.includes(texto)) {
+            posMessage.innerHTML = '';
+        }
+    }, 5000);
+}
+
+// ============================================
+// FUNCIONES SIMPLIFICADAS PARA ÓRDENES
+// ============================================
+
+async function seleccionarOrden(ordenId, totalOrden) {
+    // Solo permitir si la caja está abierta
+    if (!window.turnoAbierto) {
+        mostrarMensajeSistema('❌ La caja está cerrada. No se pueden seleccionar órdenes.', 'error');
+        return;
+    }
+    
+    try {
+        // Obtener detalles básicos de la orden
+        const response = await fetch('/api/ordenes_activas');
+        const ordenes = await response.json();
+        
+        const orden = ordenes.find(o => o.id === ordenId);
+        
+        if (!orden) {
+            mostrarMensajeSistema('❌ Orden no encontrada', 'error');
+            return;
+        }
+        
+        if (confirm(`¿Cobrar Orden #${ordenId} por $${totalOrden.toFixed(2)}?`)) {
+            window.ordenActual = ordenId;
+            window.totalOrden = totalOrden;
+            window.ordenEstado = orden.estado || 'pendiente';
+            
+            // Mostrar información de la orden
+            const ordenInfo = document.getElementById('ordenInfo');
+            ordenInfo.style.display = 'block';
+            document.getElementById('ordenNumero').textContent = `Orden #${ordenId}`;
+            document.getElementById('ordenDetalle').textContent = `Mesa ${orden.mesa_numero} • Total: $${totalOrden.toFixed(2)}`;
+            
+            // Actualizar estado visual
+            const estadoElement = document.getElementById('estadoOrden');
+            if (estadoElement) {
+                estadoElement.textContent = orden.estado || 'Pendiente';
+                estadoElement.className = `badge-estado-orden estado-${orden.estado || 'pendiente'}`;
+            }
+            
+            // Ocultar resultados de búsqueda
+            document.getElementById('ordenesResultados').style.display = 'none';
+            document.getElementById('ordenInput').value = '';
+            
+            // Actualizar total en el resumen
+            const subtotal = totalOrden;
+            const iva = subtotal * 0.21;
+            const total = subtotal + iva;
+            
+            document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('iva').textContent = `$${iva.toFixed(2)}`;
+            document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+            
+            // Actualizar carrito
+            document.getElementById('cartCount').textContent = '1 orden';
+            
+            // Mostrar info básica de la orden
+            let itemsHtml = `
+                <div class="cart-item mb-3 p-2 border rounded">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <strong>Orden #${ordenId}</strong><br>
+                            <small class="text-muted">
+                                Mesa ${orden.mesa_numero} • Total: <strong>$${totalOrden.toFixed(2)}</strong>
+                            </small>
+                        </div>
+                        <div class="cart-item-controls">
+                            <button class="btn btn-sm btn-outline-danger" onclick="limpiarOrden()" title="Eliminar">
+                                <i data-feather="trash" width="14"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Estado: <span class="badge-estado-orden estado-${orden.estado || 'pendiente'}">${orden.estado || 'Pendiente'}</span></small>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('itemsList').innerHTML = itemsHtml;
+            feather.replace();
+            
+            mostrarMensajeSistema(`✅ Orden #${ordenId} seleccionada`, 'success');
+            reproducirSonidoBeep();
+            
+            calcularCambio();
+        }
+    } catch (error) {
+        console.error('Error seleccionando orden:', error);
+        mostrarMensajeSistema('❌ Error al cargar orden', 'error');
+    }
+}
+
+function limpiarOrden() {
+    if (window.ordenActual) {
+        if (confirm('¿Desea quitar la orden seleccionada?')) {
+            window.ordenActual = null;
+            window.totalOrden = 0;
+            window.ordenEstado = 'pendiente';
+            
+            document.getElementById('ordenInfo').style.display = 'none';
+            document.getElementById('subtotal').textContent = '$0.00';
+            document.getElementById('iva').textContent = '$0.00';
+            document.getElementById('total').textContent = '$0.00';
+            document.getElementById('cartCount').textContent = '0 productos';
+            document.getElementById('itemsList').innerHTML = `
+                <div class="empty-note">
+                    <i data-feather="shopping-cart" width="48" height="48"></i><br>
+                    No hay productos en el carrito
+                </div>
+            `;
+            feather.replace();
+            
+            mostrarMensajeSistema('🛒 Orden eliminada', 'info');
+            reproducirSonidoBeep();
+            calcularCambio();
+        }
+    }
+}
+
+// ============================================
+// FUNCIÓN PROCESAR VENTA (SIMPLIFICADA)
+// ============================================
+
+async function procesarVenta() {
+    // Solo permitir si la caja está abierta
+    if (!window.turnoAbierto) {
+        mostrarMensajeSistema('❌ La caja está cerrada. No se pueden procesar ventas.', 'error');
+        return;
+    }
+    
+    if (window.ordenActual) {
+        // Procesar orden existente
+        if (confirm(`¿Confirmar pago de Orden #${window.ordenActual} por $${window.totalOrden.toFixed(2)}?`)) {
+            mostrarMensajeSistema('💰 Procesando pago de orden...', 'info');
+            
+            // Simular proceso
+            setTimeout(() => {
+                reproducirSonidoVenta();
+                mostrarMensajeSistema(`✅ Orden #${window.ordenActual} cobrada exitosamente`, 'success');
+                
+                // Limpiar después de cobrar
+                window.cart = [];
+                window.ordenActual = null;
+                window.totalOrden = 0;
+                actualizarCarrito();
+                limpiarOrden();
+            }, 1000);
+        }
+    } else if (window.cart.length > 0) {
+        // Procesar productos sueltos
+        const total = parseFloat(document.getElementById('total').textContent.replace('$', ''));
+        const metodoPago = document.getElementById('paymentMethod').value;
+        
+        if (confirm(`¿Confirmar venta de ${window.cart.length} productos por $${total.toFixed(2)} (${metodoPago})?`)) {
+            mostrarMensajeSistema('💰 Procesando venta...', 'info');
+            
+            // Simular proceso
+            setTimeout(() => {
+                reproducirSonidoVenta();
+                mostrarMensajeSistema(`✅ Venta completada exitosamente`, 'success');
+                
+                // Limpiar carrito después de la venta
+                window.cart = [];
+                actualizarCarrito();
+            }, 1000);
+        }
+    } else {
+        mostrarMensajeSistema('❌ No hay nada para vender', 'error');
+    }
+}
+
+// ============================================
+// INICIALIZACIÓN
+// ============================================
+
+// Hacer funciones disponibles globalmente
+window.agregarProductoSuelto = agregarProductoSuelto;
+window.actualizarCarrito = actualizarCarrito;
+window.modificarCantidad = modificarCantidad;
+window.eliminarDelCarrito = eliminarDelCarrito;
+window.verificarStockDisponible = verificarStockDisponible;
+window.buscarOrdenes = buscarOrdenes;
+window.seleccionarOrden = seleccionarOrden;
+window.limpiarOrden = limpiarOrden;
+window.actualizarEstadosOrdenes = actualizarEstadosOrdenes;
+window.mostrarNotificacionesRapidas = mostrarNotificacionesRapidas;
+window.procesarVenta = procesarVenta;
+window.confirmarCierreCaja = confirmarCierreCaja;
+</script>
+</body>
+</html>

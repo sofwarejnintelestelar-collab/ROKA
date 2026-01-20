@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Producto - Sistema Óptica POS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .required-field::after {
+            content: " *";
+            color: #dc3545;
+        }
+        .form-label.required-field {
+            font-weight: bold;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .producto-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .tipo-badge {
+            font-size: 0.85em;
+            padding: 4px 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <!-- Encabezado -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h3 mb-1">
+                            <i class="bi bi-pencil-square text-primary me-2"></i>
+                            Editar Producto
+                        </h1>
+                        <p class="text-muted mb-0">Modifica los datos del producto en el inventario</p>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('productos') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i> Volver a Productos
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información del producto -->
+        <div class="row mb-4">
+            <div class="col">
+                <div class="producto-info">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <p class="mb-1"><strong>Código:</strong> {{ producto.codigo }}</p>
+                            <p class="mb-1"><strong>Descripción:</strong> {{ producto.descripcion }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="mb-1"><strong>Stock actual:</strong> {{ producto.stock }} unidades</p>
+                            <p class="mb-1"><strong>Entrada:</strong> {{ producto.entrada }} unidades</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="mb-1"><strong>Tipo actual:</strong> 
+                                <span class="badge {% if producto.tipo == TIPO_LENTE_SOL %}bg-warning text-dark
+                                                    {% elif producto.tipo == TIPO_ARMAZON_RECETA %}bg-info
+                                                    {% else %}bg-secondary{% endif %} tipo-badge">
+                                    {% if producto.tipo == TIPO_LENTE_SOL %}
+                                        🕶️ Lentes de Sol
+                                    {% elif producto.tipo == TIPO_ARMAZON_RECETA %}
+                                        👓 Armazones
+                                    {% elif producto.tipo == TIPO_PRODUCTO_GENERAL %}
+                                        📦 Productos Generales
+                                    {% else %}
+                                        {{ producto.tipo }}
+                                    {% endif %}
+                                </span>
+                            </p>
+                            <p class="mb-1"><strong>Estado:</strong> 
+                                <span class="badge {% if producto.estado == 'activo' %}bg-success{% else %}bg-danger{% endif %} tipo-badge">
+                                    {{ producto.estado|title }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulario de edición -->
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-pencil me-2"></i>
+                            Datos del Producto
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" id="productoForm">
+                            <!-- Código (no editable) -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">
+                                        <i class="bi bi-upc-scan me-1"></i>
+                                        Código del Producto
+                                    </label>
+                                    <input type="text" class="form-control bg-light" 
+                                           value="{{ producto.codigo }}" readonly>
+                                    <input type="hidden" name="codigo" value="{{ producto.codigo }}">
+                                    <div class="form-text">Código único del producto (no editable)</div>
+                                </div>
+                            </div>
+
+                            <!-- Descripción -->
+                            <div class="mb-3">
+                                <label for="descripcion" class="form-label required-field">
+                                    <i class="bi bi-card-text me-1"></i>
+                                    Descripción
+                                </label>
+                                <textarea class="form-control" id="descripcion" name="descripcion" 
+                                          rows="2" required>{{ producto.descripcion }}</textarea>
+                                <div class="form-text">Descripción detallada del producto</div>
+                            </div>
+
+                            <!-- Tipo de Producto - CORREGIDO -->
+                            <div class="mb-3">
+                                <label for="tipo" class="form-label required-field">
+                                    <i class="bi bi-tags me-1"></i>
+                                    Tipo de Producto
+                                </label>
+                                <select class="form-select" id="tipo" name="tipo" required>
+                                    <option value="">Seleccionar tipo...</option>
+                                    <option value="sunglasses" 
+                                            {% if producto.tipo == 'sunglasses' %}selected{% endif %}>
+                                        🕶️ Lentes de Sol
+                                    </option>
+                                    <option value="glasses" 
+                                            {% if producto.tipo == 'glasses' %}selected{% endif %}>
+                                        👓 Armazones de Receta
+                                    </option>
+                                    <option value="box" 
+                                            {% if producto.tipo == 'box' %}selected{% endif %}>
+                                        📦 Productos Generales
+                                    </option>
+                                </select>
+                                <div class="form-text">
+                                    <small class="text-info">
+                                        <i class="bi bi-info-circle"></i> 
+                                        Valores permitidos: sunglasses, glasses, box
+                                    </small>
+                                </div>
+                            </div>
+
+                            <!-- Sistema de Marcas -->
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="bi bi-award me-1"></i>
+                                    Marca del Producto
+                                </label>
+                                
+                                <!-- Mostrar marca actual -->
+                                <div class="alert alert-info py-2 mb-2" 
+                                     {% if not producto.marca_nombre %}style="display: none;"{% endif %}>
+                                    <small>
+                                        <strong>Marca actual:</strong> 
+                                        <span id="marcaActual">{{ producto.marca_nombre or 'Sin marca' }}</span>
+                                    </small>
+                                </div>
+                                
+                                <!-- Opción 1: Seleccionar marca existente -->
+                                <div class="mb-2">
+                                    <label class="form-label small">Seleccionar marca existente:</label>
+                                    <select class="form-select" id="marca_id" name="marca_id">
+                                        <option value="">Seleccionar marca...</option>
+                                        {% for marca in marcas %}
+                                        <option value="{{ marca.id }}" 
+                                                {% if producto.marca_id == marca.id %}selected{% endif %}>
+                                            {{ marca.nombre }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <!-- Opción 2: Ingresar nueva marca -->
+                                <div class="mb-2">
+                                    <label class="form-label small">O ingresar nueva marca:</label>
+                                    <input type="text" class="form-control" id="marca_nueva" name="marca_nueva" 
+                                           placeholder="Ej: RAY BAN, MOTOR OIL, SAINT MORITZ...">
+                                </div>
+                            </div>
+
+                            <!-- Modelo y Categoría -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="modelo" class="form-label">
+                                        <i class="bi bi-123 me-1"></i>
+                                        Modelo
+                                    </label>
+                                    <input type="text" class="form-control" id="modelo" name="modelo" 
+                                           value="{{ producto.modelo }}" placeholder="Ej: C1, MH-14, 2087...">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="categoria" class="form-label">
+                                        <i class="bi bi-grid me-1"></i>
+                                        Categoría
+                                    </label>
+                                    <input type="text" class="form-control" id="categoria" name="categoria" 
+                                           value="{{ producto.categoria }}" placeholder="Ej: Unisex, Hombre, Mujer...">
+                                </div>
+                            </div>
+
+                            <!-- Entrada y Precio -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="entrada" class="form-label required-field">
+                                        <i class="bi bi-box-arrow-in-down me-1"></i>
+                                        Entrada (Unidades)
+                                    </label>
+                                    <input type="number" class="form-control" id="entrada" name="entrada" 
+                                           value="{{ producto.entrada }}" min="0" required>
+                                    <div class="form-text">Cantidad total ingresada al inventario</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="precio" class="form-label required-field">
+                                        <i class="bi bi-currency-dollar me-1"></i>
+                                        Precio de Venta
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="precio" name="precio" 
+                                               step="0.01" min="0" value="{{ producto.precio|default(0, true) }}" required>
+                                    </div>
+                                    <div class="form-text">Precio de venta al público</div>
+                                </div>
+                            </div>
+
+                            <!-- Notas -->
+                            <div class="mb-3">
+                                <label for="notas" class="form-label">
+                                    <i class="bi bi-card-text me-1"></i>
+                                    Notas
+                                </label>
+                                <textarea class="form-control" id="notas" name="notas" 
+                                          rows="3">{{ producto.notas }}</textarea>
+                                <div class="form-text">Información adicional sobre el producto</div>
+                            </div>
+
+                            <!-- Información de Proveedor -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-truck me-2"></i>
+                                        Información de Proveedor
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="proveedor_id" class="form-label">Proveedor</label>
+                                            <select class="form-select" id="proveedor_id" name="proveedor_id">
+                                                <option value="">Sin proveedor</option>
+                                                {% for proveedor in proveedores %}
+                                                <option value="{{ proveedor.id }}" 
+                                                        {% if proveedor_actual and proveedor_actual.id == proveedor.id %}selected{% endif %}>
+                                                    {{ proveedor.nombre }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="precio_compra" class="form-label">Precio de Compra</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control" id="precio_compra" 
+                                                       name="precio_compra" step="0.01" min="0"
+                                                       value="{{ proveedor_actual.precio_compra if proveedor_actual else '' }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <label for="codigo_proveedor" class="form-label">Código del Proveedor</label>
+                                            <input type="text" class="form-control" id="codigo_proveedor" 
+                                                   name="codigo_proveedor" 
+                                                   value="{{ proveedor_actual.codigo_proveedor if proveedor_actual else '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <label for="notas_proveedor" class="form-label">Notas del Proveedor</label>
+                                            <textarea class="form-control" id="notas_proveedor" name="notas_proveedor" 
+                                                      rows="2">{{ proveedor_actual.notas if proveedor_actual else '' }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botones -->
+                            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                                <div>
+                                    <a href="{{ url_for('productos') }}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                                    </a>
+                                </div>
+                                <div>
+                                    <button type="submit" class="btn btn-primary" onclick="return validarFormulario()">
+                                        <i class="bi bi-check-circle me-1"></i> Guardar Cambios
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Información de debug (solo para desarrollo) -->
+                <div class="card mt-3 border-info">
+                    <div class="card-header bg-info bg-opacity-10">
+                        <h6 class="mb-0 text-info">
+                            <i class="bi bi-bug me-2"></i>
+                            Información de Depuración
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <strong>Tipo actual en BD:</strong> <code>{{ producto.tipo }}</code><br>
+                                    <strong>ID:</strong> {{ producto.id }}
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    <strong>Valores permitidos:</strong><br>
+                                    <code>sunglasses</code> (Lentes de Sol)<br>
+                                    <code>glasses</code> (Armazones)<br>
+                                    <code>box</code> (Productos Generales)
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Validación del formulario
+        function validarFormulario() {
+            // Validar tipo de producto
+            const tipoSelect = document.getElementById('tipo');
+            const tipoValor = tipoSelect.value;
+            
+            // Valores permitidos en la base de datos
+            const valoresPermitidos = ['sunglasses', 'glasses', 'box'];
+            
+            if (!valoresPermitidos.includes(tipoValor)) {
+                alert('ERROR: Tipo de producto no válido.\n\nValores permitidos: sunglasses, glasses, box');
+                tipoSelect.focus();
+                return false;
+            }
+            
+            // Validar entrada vs ventas
+            const entrada = parseInt(document.getElementById('entrada').value) || 0;
+            const ventas = parseInt('{{ producto.salida }}') || 0;
+            
+            if (entrada < ventas) {
+                alert(`ERROR: La entrada (${entrada}) no puede ser menor que las unidades ya vendidas (${ventas}).\n\nStock mínimo requerido: ${ventas} unidades.`);
+                document.getElementById('entrada').focus();
+                return false;
+            }
+            
+            // Validar precio
+            const precio = parseFloat(document.getElementById('precio').value) || 0;
+            if (precio < 0) {
+                alert('ERROR: El precio no puede ser negativo');
+                document.getElementById('precio').focus();
+                return false;
+            }
+            
+            // Mostrar confirmación
+            const confirmacion = confirm(`¿Está seguro de guardar los cambios?\n\nTipo de producto: ${tipoValor}\nNuevo stock: ${entrada - ventas} unidades`);
+            if (!confirmacion) {
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Mostrar cálculo de stock en tiempo real
+        document.getElementById('entrada').addEventListener('input', function() {
+            const entrada = parseInt(this.value) || 0;
+            const ventas = parseInt('{{ producto.salida }}') || 0;
+            const nuevoStock = Math.max(0, entrada - ventas);
+            
+            // Mostrar información
+            const infoDiv = document.getElementById('stockInfo');
+            if (!infoDiv) {
+                const div = document.createElement('div');
+                div.id = 'stockInfo';
+                div.className = 'alert alert-info mt-2 py-2';
+                this.parentNode.appendChild(div);
+            }
+            
+            document.getElementById('stockInfo').innerHTML = `
+                <small>
+                    <strong>Cálculo automático:</strong><br>
+                    Entrada (${entrada}) - Vendidas (${ventas}) = <strong>Nuevo stock: ${nuevoStock}</strong>
+                </small>
+            `;
+        });
+        
+        // Inicializar cálculo al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            // Disparar evento de entrada para mostrar cálculo inicial
+            document.getElementById('entrada').dispatchEvent(new Event('input'));
+            
+            // Mostrar valores en consola para depuración
+            console.log('Tipo actual del producto:', '{{ producto.tipo }}');
+            console.log('Valores permitidos:', ['sunglasses', 'glasses', 'box']);
+        });
+    </script>
+</body>
+</html>
