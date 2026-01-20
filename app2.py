@@ -469,16 +469,16 @@ def admin_required(f):
     return decorated_function
 
 # ==============================
-# RUTAS PRINCIPALES
+# RUTAS PRINCIPALES - MODIFICADO: AHORA INICIA DESDE LOGIN
 # ==============================
 @app.route("/")
 def index():
-    """Página principal - Redirige a chef directamente"""
-    return redirect(url_for('chef'))
+    """Página principal - Redirige a LOGIN en lugar de chef"""
+    return redirect(url_for('login'))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Login para sistema POS (opcional)"""
+    """Login para sistema POS - Página principal"""
     if 'user_id' in session:
         usuario_actual = get_usuario_actual()
         if usuario_actual:
@@ -489,6 +489,8 @@ def login():
                 return redirect(url_for('chef'))
             elif usuario_actual['rol'] == 'mozo':
                 return redirect(url_for('ordenes'))
+            elif usuario_actual['rol'] == 'admin':
+                return redirect(url_for('productos'))
             else:
                 return redirect(url_for('caja'))
     
@@ -510,6 +512,8 @@ def login():
                 return redirect(url_for('chef'))
             elif usuario['rol'] == 'mozo':
                 return redirect(url_for('ordenes'))
+            elif usuario['rol'] == 'admin':
+                return redirect(url_for('productos'))
             else:
                 return redirect(url_for('caja'))
         else:
@@ -589,31 +593,38 @@ def caja():
                              ordenes_abiertas=[])
 
 # ==============================
-# PANEL DEL CHEF - ACCESO LIBRE
+# PANEL DEL CHEF - ACCESO SOLO PARA CHEFS LOGUEADOS
 # ==============================
 @app.route("/chef")
+@login_required
 def chef():
-    """Panel del chef - ACCESO LIBRE PARA TODOS"""
-    # Crear usuario temporal para el chef
-    usuario_temporal = {
-        'id': 999,
-        'username': 'chef_publico',
-        'nombre': 'Cocina Pública',
-        'rol': 'chef'
-    }
+    """Panel del chef - Requiere login y rol de chef"""
+    usuario_actual = get_usuario_actual()
     
-    print(f"👨‍🍳 Acceso público al panel del chef desde IP: {request.remote_addr}")
+    # Verificar si el usuario tiene rol de chef
+    if usuario_actual['rol'] != 'chef':
+        flash('Acceso restringido. Se requiere rol de chef.', 'danger')
+        return redirect(url_for('login'))
+    
+    print(f"👨‍🍳 Chef {usuario_actual['nombre']} accedió al panel")
     
     return render_template("chef.html", 
-                         usuario=usuario_temporal,
+                         usuario=usuario_actual,
                          ahora=datetime.now())
 
 # ==============================
-# API ENDPOINTS PÚBLICOS PARA CHEF
+# API ENDPOINTS PÚBLICOS PARA CHEF (solo para chefs)
 # ==============================
 @app.route("/api/pedidos_cocina_comidas")
+@login_required
 def api_pedidos_cocina_comidas():
-    """API pública para mostrar solo comidas en la cocina"""
+    """API para mostrar solo comidas en la cocina - requiere login"""
+    usuario_actual = get_usuario_actual()
+    
+    # Solo chefs pueden acceder a esta API
+    if usuario_actual['rol'] != 'chef':
+        return jsonify({"error": "Acceso no autorizado"}), 403
+    
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -698,8 +709,15 @@ def api_pedidos_cocina_comidas():
         return jsonify([])
 
 @app.route("/api/actualizar_item_estado", methods=["POST"])
+@login_required
 def api_actualizar_item_estado():
-    """API pública para actualizar estado de items"""
+    """API para actualizar estado de items - requiere login"""
+    usuario_actual = get_usuario_actual()
+    
+    # Solo chefs pueden actualizar estados
+    if usuario_actual['rol'] != 'chef':
+        return jsonify({"success": False, "message": "Acceso no autorizado"}), 403
+    
     try:
         data = request.get_json()
         if not data:
@@ -1020,14 +1038,189 @@ def crear_producto():
         return redirect(url_for('productos'))
 
 # ==============================
-# OTRAS RUTAS IMPORTANTES (resumidas para ahorrar espacio)
+# RUTAS PARA ORDENES
 # ==============================
+@app.route("/ordenes")
+@login_required
+def ordenes():
+    usuario_actual = get_usuario_actual()
+    return render_template("ordenes.html", usuario=usuario_actual, ahora=datetime.now())
 
+# ==============================
+# RUTAS PARA MESAS
+# ==============================
+@app.route("/mesas")
+@login_required
+def mesas():
+    usuario_actual = get_usuario_actual()
+    return render_template("mesas.html", usuario=usuario_actual, ahora=datetime.now())
+
+# ==============================
+# OTRAS RUTAS BÁSICAS
+# ==============================
+@app.route("/categorias")
+@login_required
+def categorias():
+    usuario_actual = get_usuario_actual()
+    return render_template("categorias.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/proveedores")
+@login_required
+def proveedores():
+    usuario_actual = get_usuario_actual()
+    return render_template("proveedores.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/ventas")
+@login_required
+def ventas():
+    usuario_actual = get_usuario_actual()
+    return render_template("ventas.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/historial_caja")
+@login_required
+def historial_caja():
+    usuario_actual = get_usuario_actual()
+    return render_template("historial_caja.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/cerrar_caja")
+@login_required
+def cerrar_caja():
+    usuario_actual = get_usuario_actual()
+    return render_template("cerrar_caja.html", usuario=usuario_actual, ahora=datetime.now())
+
+# ==============================
+# APIS BÁSICAS
+# ==============================
+@app.route("/api/mesas")
+def api_mesas():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('SELECT m.*, o.id as orden_id, CASE WHEN o.id IS NOT NULL THEN true ELSE false END as tiene_orden FROM mesas m LEFT JOIN ordenes o ON m.id = o.mesa_id AND o.estado = %s ORDER BY m.numero', ('abierta',))
+        mesas_db = cur.fetchall()
+        mesas_list = []
+        for m in mesas_db:
+            mesas_list.append({
+                'id': m[0], 'numero': m[1], 'capacidad': m[2], 'estado': m[3],
+                'ubicacion': m[4], 'orden_id': m[6], 'tiene_orden': m[7]
+            })
+        return jsonify(mesas_list)
+    except Exception as e:
+        print(f"Error obteniendo mesas: {e}")
+        return jsonify([])
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+@app.route("/api/productos")
+def api_productos():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('SELECT p.id, p.codigo_barra, p.nombre, p.precio, p.stock, p.tipo, p.categoria_id, c.nombre as categoria_nombre FROM productos p LEFT JOIN categorias c ON p.categoria_id = c.id ORDER BY p.nombre')
+        productos_db = cur.fetchall()
+        productos_list = []
+        for p in productos_db:
+            # Convertir stock a entero
+            stock_value = p[4]
+            if stock_value is None:
+                stock_int = 0
+            else:
+                try:
+                    stock_int = int(stock_value)
+                except (ValueError, TypeError):
+                    stock_int = 0
+            
+            # Convertir precio a float
+            precio_value = p[3]
+            if precio_value is None:
+                precio_float = 0.0
+            else:
+                try:
+                    precio_float = float(precio_value)
+                except (ValueError, TypeError):
+                    precio_float = 0.0
+            
+            productos_list.append({
+                'id': p[0], 
+                'codigo_barra': p[1], 
+                'nombre': p[2],
+                'precio': precio_float,
+                'stock': stock_int,
+                'tipo': p[5] if len(p) > 5 else 'producto',
+                'categoria_id': p[6], 
+                'categoria_nombre': p[7] if p[7] else 'Sin categoría'
+            })
+        return jsonify(productos_list)
+    except Exception as e:
+        print(f"Error obteniendo productos: {e}")
+        return jsonify([])
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+@app.route("/api/categorias")
+def api_categorias():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('SELECT id, nombre FROM categorias ORDER BY nombre')
+        categorias_db = cur.fetchall()
+        categorias_list = []
+        for c in categorias_db:
+            categorias_list.append({'id': c[0], 'nombre': c[1]})
+        return jsonify(categorias_list)
+    except Exception as e:
+        print(f"Error obteniendo categorías: {e}")
+        return jsonify([])
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+@app.route("/api/ordenes_activas")
+@login_required
+def api_ordenes_activas():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('SELECT o.id, o.mesa_id, m.numero as mesa_numero, o.mozo_nombre, o.total, o.fecha_apertura, o.estado, COUNT(oi.id) as items_count FROM ordenes o JOIN mesas m ON o.mesa_id = m.id LEFT JOIN orden_items oi ON o.id = oi.orden_id WHERE o.estado IN (%s, %s, %s) GROUP BY o.id, m.numero ORDER BY o.fecha_apertura DESC', ('abierta', 'proceso', 'listo'))
+        ordenes_db = cur.fetchall()
+        ordenes_list = []
+        for o in ordenes_db:
+            ordenes_list.append({
+                'id': o[0], 'mesa_id': o[1], 'mesa_numero': o[2],
+                'mozo_nombre': o[3], 'total': float(o[4]) if o[4] else 0,
+                'fecha_apertura': o[5].strftime('%Y-%m-%d %H:%M:%S') if o[5] else '',
+                'estado': o[6], 'items_count': o[7]
+            })
+        return jsonify(ordenes_list)
+    except Exception as e:
+        print(f"Error obteniendo órdenes activas: {e}")
+        return jsonify([])
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+# ==============================
+# LOGOUT
+# ==============================
 @app.route("/logout")
 def logout():
     session.clear()
     flash('Sesión cerrada correctamente', 'info')
-    return redirect(url_for('chef'))
+    return redirect(url_for('login'))
 
 # ==============================
 # INICIO DEL SERVIDOR PARA RENDER
