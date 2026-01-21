@@ -1050,7 +1050,7 @@ def api_pedidos_cocina_comidas():
             cur.close()
             conn.close()
         except:
-        pass
+            pass
 
 @app.route("/api/actualizar_item_estado", methods=["POST"])
 def api_actualizar_item_estado():
