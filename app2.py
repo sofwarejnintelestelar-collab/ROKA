@@ -100,36 +100,6 @@ def get_db_connection():
         )
 
 # ==============================
-# WEBSOCKETS GENERALES
-# ==============================
-@socketio.on('connect')
-def handle_connect():
-    print(f'✅ Cliente conectado: {request.sid}')
-    emit('connection_response', {'status': 'connected', 'sid': request.sid})
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    print(f'❌ Cliente desconectado: {request.sid}')
-
-# ==============================
-# WEBSOCKETS ESPECÍFICOS PARA CHEF
-# ==============================
-@socketio.on('connect', namespace='/chef')
-def handle_connect_chef():
-    print(f'👨‍🍳 Chef conectado: {request.sid}')
-    emit('connection_response', {'status': 'connected', 'rol': 'chef', 'message': 'Conexión establecida con cocina'}, namespace='/chef')
-
-@socketio.on('disconnect', namespace='/chef')
-def handle_disconnect_chef():
-    print(f'👨‍🍳 Chef desconectado: {request.sid}')
-
-@socketio.on('join_chef', namespace='/chef')
-def handle_join_chef(data):
-    usuario_id = data.get('usuario_id', 'invitado')
-    print(f'👨‍🍳 Chef se unió al namespace cocina (Usuario: {usuario_id})')
-    emit('join_response', {'status': 'joined', 'rol': 'chef', 'message': 'Bienvenido a la cocina'}, namespace='/chef')
-
-# ==============================
 # CREACIÓN DE TABLAS (SI NO EXISTEN)
 # ==============================
 def create_tables():
@@ -302,6 +272,50 @@ def create_tables():
             conn.close()
         except:
             pass
+
+# ==============================
+# CREAR TABLAS AL INICIAR (PARA RENDER/GUNICORN)
+# ==============================
+print("🚀 Inicializando aplicación ROKA...")
+try:
+    success = create_tables()
+    if success:
+        print("✅ Sistema listo para usar")
+    else:
+        print("⚠️  Las tablas pueden necesitar ser creadas manualmente")
+        print("ℹ️  Visita /crear-tablas para crear las tablas")
+except Exception as e:
+    print(f"⚠️  Error durante inicialización: {e}")
+
+# ==============================
+# WEBSOCKETS GENERALES
+# ==============================
+@socketio.on('connect')
+def handle_connect():
+    print(f'✅ Cliente conectado: {request.sid}')
+    emit('connection_response', {'status': 'connected', 'sid': request.sid})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print(f'❌ Cliente desconectado: {request.sid}')
+
+# ==============================
+# WEBSOCKETS ESPECÍFICOS PARA CHEF
+# ==============================
+@socketio.on('connect', namespace='/chef')
+def handle_connect_chef():
+    print(f'👨‍🍳 Chef conectado: {request.sid}')
+    emit('connection_response', {'status': 'connected', 'rol': 'chef', 'message': 'Conexión establecida con cocina'}, namespace='/chef')
+
+@socketio.on('disconnect', namespace='/chef')
+def handle_disconnect_chef():
+    print(f'👨‍🍳 Chef desconectado: {request.sid}')
+
+@socketio.on('join_chef', namespace='/chef')
+def handle_join_chef(data):
+    usuario_id = data.get('usuario_id', 'invitado')
+    print(f'👨‍🍳 Chef se unió al namespace cocina (Usuario: {usuario_id})')
+    emit('join_response', {'status': 'joined', 'rol': 'chef', 'message': 'Bienvenido a la cocina'}, namespace='/chef')
 
 # ==============================
 # FUNCIONES DE AUTENTICACIÓN
@@ -685,7 +699,7 @@ def historial_caja():
     return render_template("historial_caja.html", usuario=usuario_actual, ahora=datetime.now())
 
 # ==============================
-# RUTAS DE CREACIÓN/EDICIÓN (FALTANTES)
+# RUTAS DE CREACIÓN/EDICIÓN
 # ==============================
 @app.route("/crear_producto", methods=["GET", "POST"])
 @login_required
@@ -693,7 +707,6 @@ def crear_producto():
     usuario_actual = get_usuario_actual()
     
     if request.method == "POST":
-        # Lógica para crear producto
         nombre = request.form.get("nombre", "").strip()
         precio = request.form.get("precio", "0")
         stock = request.form.get("stock", "0")
@@ -790,7 +803,7 @@ def crear_categoria():
     return render_template("crear_categoria.html", usuario=usuario_actual, ahora=datetime.now())
 
 # ==============================
-# APIS PÚBLICAS (MÍNIMAS NECESARIAS)
+# APIS PÚBLICAS
 # ==============================
 @app.route("/api/mesas")
 def api_mesas():
@@ -1008,13 +1021,9 @@ def error_servidor(e):
     return render_template('500.html'), 500
 
 # ==============================
-# INICIO DEL SERVIDOR
+# EJECUCIÓN PRINCIPAL
 # ==============================
 if __name__ == "__main__":
-    # Crear tablas al iniciar
-    print("🚀 Iniciando aplicación ROKA...")
-    create_tables()
-    
     port = int(os.environ.get("PORT", 5000))
     socketio.run(
         app,
