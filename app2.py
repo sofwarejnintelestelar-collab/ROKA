@@ -515,18 +515,47 @@ def crear_tablas_manual():
 @login_required
 def caja():
     usuario_actual = get_usuario_actual()
+    
+    # Verificar si hay caja abierta
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, estado FROM caja_turnos WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1")
+        caja_abierta = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if not caja_abierta:
+            # Redirigir a página de caja sin turno
+            return render_template("caja_sin_turno.html", 
+                                 usuario=usuario_actual, 
+                                 ahora=datetime.now(),
+                                 mensaje="La caja está cerrada. Debes abrir un turno primero.")
+    except Exception as e:
+        print(f"Error verificando caja: {e}")
+        return render_template("caja_sin_turno.html", 
+                             usuario=usuario_actual, 
+                             ahora=datetime.now(),
+                             mensaje="Error al verificar estado de caja.")
+    
     return render_template("caja.html", usuario=usuario_actual, ahora=datetime.now())
 
 @app.route("/chef")
 @login_required
 def chef():
     usuario_actual = get_usuario_actual()
+    if usuario_actual['rol'] != 'chef':
+        flash('Acceso restringido para chefs', 'danger')
+        return redirect(url_for('login'))
     return render_template("chef.html", usuario=usuario_actual, ahora=datetime.now())
 
 @app.route("/ordenes")
 @login_required
 def ordenes():
     usuario_actual = get_usuario_actual()
+    if usuario_actual['rol'] not in ['mozo', 'admin']:
+        flash('Acceso restringido para mozos', 'danger')
+        return redirect(url_for('login'))
     return render_template("ordenes.html", usuario=usuario_actual, ahora=datetime.now())
 
 @app.route("/productos")
@@ -540,7 +569,7 @@ def productos():
     
     if search:
         cur.execute('''
-            SELECT p.id, p.nombre, p.precio, p.stock, p.tipo, 
+            SELECT p.id, p.nombre, p.precio, p.stock, p.tipo, p.codigo_barra,
                    c.nombre as categoria_nombre
             FROM productos p 
             LEFT JOIN categorias c ON p.categoria_id = c.id
@@ -549,7 +578,7 @@ def productos():
         ''', (f'%{search}%',))
     else:
         cur.execute('''
-            SELECT p.id, p.nombre, p.precio, p.stock, p.tipo, 
+            SELECT p.id, p.nombre, p.precio, p.stock, p.tipo, p.codigo_barra,
                    c.nombre as categoria_nombre
             FROM productos p 
             LEFT JOIN categorias c ON p.categoria_id = c.id
@@ -569,7 +598,8 @@ def productos():
             'precio': float(p[2]) if p[2] else 0.0,
             'stock': p[3] if p[3] is not None else 0,
             'tipo': p[4] if p[4] else 'producto',
-            'categoria_nombre': p[5] if p[5] else 'Sin categoría'
+            'codigo_barra': p[5] if p[5] else '',
+            'categoria_nombre': p[6] if p[6] else 'Sin categoría'
         })
     
     cur.close()
@@ -706,12 +736,20 @@ def historial_caja():
 def crear_producto():
     usuario_actual = get_usuario_actual()
     
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT id, nombre FROM categorias ORDER BY nombre')
+    categorias = [{'id': c[0], 'nombre': c[1]} for c in cur.fetchall()]
+    cur.close()
+    conn.close()
+    
     if request.method == "POST":
         nombre = request.form.get("nombre", "").strip()
         precio = request.form.get("precio", "0")
         stock = request.form.get("stock", "0")
         categoria_id = request.form.get("categoria_id")
         tipo = request.form.get("tipo", "producto")
+        codigo_barra = request.form.get("codigo_barra", "")
         
         if not nombre or not precio:
             flash('Nombre y precio son requeridos', 'danger')
@@ -724,9 +762,9 @@ def crear_producto():
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute('''
-                INSERT INTO productos (nombre, precio, stock, categoria_id, tipo) 
-                VALUES (%s, %s, %s, %s, %s)
-            ''', (nombre, precio_float, stock_int, categoria_id, tipo))
+                INSERT INTO productos (nombre, precio, stock, categoria_id, tipo, codigo_barra) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (nombre, precio_float, stock_int, categoria_id, tipo, codigo_barra))
             
             conn.commit()
             flash(f'Producto "{nombre}" creado exitosamente', 'success')
@@ -735,19 +773,22 @@ def crear_producto():
         except Exception as e:
             flash(f'Error al crear producto: {str(e)}', 'danger')
             return redirect(url_for('crear_producto'))
-    
-    # GET - mostrar formulario
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute('SELECT id, nombre FROM categorias ORDER BY nombre')
-    categorias = [{'id': c[0], 'nombre': c[1]} for c in cur.fetchall()]
-    cur.close()
-    conn.close()
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except:
+                pass
     
     return render_template("crear_producto.html",
                          usuario=usuario_actual,
                          categorias=categorias,
-                         ahora=datetime.now())
+                         ahora=datetime.now(),
+                         tipos_producto=[
+                             {'valor': 'producto', 'nombre': 'Producto General'},
+                             {'valor': 'comida', 'nombre': 'Comida'},
+                             {'valor': 'bebida', 'nombre': 'Bebida'}
+                         ])
 
 @app.route("/crear_mesa", methods=["GET", "POST"])
 @login_required
@@ -774,6 +815,12 @@ def crear_mesa():
         except Exception as e:
             flash(f'Error al crear mesa: {str(e)}', 'danger')
             return redirect(url_for('crear_mesa'))
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except:
+                pass
     
     return render_template("crear_mesa.html", usuario=usuario_actual, ahora=datetime.now())
 
@@ -799,8 +846,92 @@ def crear_categoria():
         except Exception as e:
             flash(f'Error al crear categoría: {str(e)}', 'danger')
             return redirect(url_for('crear_categoria'))
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except:
+                pass
     
     return render_template("crear_categoria.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/crear_proveedor", methods=["GET", "POST"])
+@login_required
+def crear_proveedor():
+    usuario_actual = get_usuario_actual()
+    
+    if request.method == "POST":
+        nombre = request.form.get("nombre", "").strip()
+        contacto = request.form.get("contacto", "")
+        telefono = request.form.get("telefono", "")
+        email = request.form.get("email", "")
+        direccion = request.form.get("direccion", "")
+        
+        if not nombre:
+            flash('Nombre del proveedor requerido', 'danger')
+            return redirect(url_for('crear_proveedor'))
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute('''
+                INSERT INTO proveedores (nombre, contacto, telefono, email, direccion) 
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (nombre, contacto, telefono, email, direccion))
+            conn.commit()
+            flash(f'Proveedor "{nombre}" creado exitosamente', 'success')
+            return redirect(url_for('proveedores'))
+        except Exception as e:
+            flash(f'Error al crear proveedor: {str(e)}', 'danger')
+            return redirect(url_for('crear_proveedor'))
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except:
+                pass
+    
+    return render_template("crear_proveedor.html", usuario=usuario_actual, ahora=datetime.now())
+
+@app.route("/abrir_caja", methods=["GET", "POST"])
+@login_required
+def abrir_caja():
+    usuario_actual = get_usuario_actual()
+    
+    if request.method == "POST":
+        monto_inicial = request.form.get("monto_inicial", 0)
+        observaciones = request.form.get("observaciones", "")
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            
+            # Verificar si ya hay caja abierta
+            cur.execute("SELECT id FROM caja_turnos WHERE estado = 'abierta'")
+            if cur.fetchone():
+                flash('Ya hay una caja abierta', 'danger')
+                return redirect(url_for('caja'))
+            
+            # Abrir nueva caja
+            cur.execute('''
+                INSERT INTO caja_turnos (fecha_apertura, monto_inicial, observaciones, estado)
+                VALUES (NOW(), %s, %s, 'abierta')
+            ''', (monto_inicial, observaciones))
+            
+            conn.commit()
+            flash('Caja abierta exitosamente', 'success')
+            return redirect(url_for('caja'))
+            
+        except Exception as e:
+            flash(f'Error al abrir caja: {str(e)}', 'danger')
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except:
+                pass
+    
+    return render_template("abrir_caja.html", usuario=usuario_actual, ahora=datetime.now())
 
 # ==============================
 # APIS PÚBLICAS
@@ -919,7 +1050,7 @@ def api_pedidos_cocina_comidas():
             cur.close()
             conn.close()
         except:
-            pass
+        pass
 
 @app.route("/api/actualizar_item_estado", methods=["POST"])
 def api_actualizar_item_estado():
@@ -1010,15 +1141,49 @@ def logout():
     return redirect(url_for('login'))
 
 # ==============================
-# MANEJO DE ERRORES
+# TEMPLATES DE ERROR
 # ==============================
 @app.errorhandler(404)
 def pagina_no_encontrada(e):
-    return render_template('404.html'), 404
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Página no encontrada</title>
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            h1 { color: #e74c3c; }
+            a { color: #3498db; text-decoration: none; }
+        </style>
+    </head>
+    <body>
+        <h1>404 - Página no encontrada</h1>
+        <p>La página que buscas no existe.</p>
+        <a href="/">Volver al inicio</a>
+    </body>
+    </html>
+    ''', 404
 
 @app.errorhandler(500)
 def error_servidor(e):
-    return render_template('500.html'), 500
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Error del servidor</title>
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            h1 { color: #e74c3c; }
+            a { color: #3498db; text-decoration: none; }
+        </style>
+    </head>
+    <body>
+        <h1>500 - Error interno del servidor</h1>
+        <p>Algo salió mal en el servidor.</p>
+        <a href="/">Volver al inicio</a>
+    </body>
+    </html>
+    ''', 500
 
 # ==============================
 # EJECUCIÓN PRINCIPAL
