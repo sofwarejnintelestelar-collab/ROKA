@@ -433,17 +433,18 @@ def login():
     if 'user_id' in session:
         usuario_actual = get_usuario_actual()
         if usuario_actual:
-            # Abrir caja automáticamente al iniciar sesión
-            if usuario_actual['rol'] in ['cajero', 'admin']:
-                abrir_caja_automaticamente()
-            
+            # Redirigir según rol
             if usuario_actual['rol'] == 'chef':
                 return redirect(url_for('chef'))
             elif usuario_actual['rol'] == 'mozo':
                 return redirect(url_for('ordenes'))
             elif usuario_actual['rol'] == 'admin':
-                return redirect(url_for('productos'))
+                # Abrir caja automáticamente para admin
+                abrir_caja_automaticamente()
+                return redirect(url_for('caja'))
             else:
+                # Para cajero, abrir caja automáticamente y redirigir a caja
+                abrir_caja_automaticamente()
                 return redirect(url_for('caja'))
     
     if request.method == "POST":
@@ -458,18 +459,20 @@ def login():
             session['rol'] = usuario['rol']
             flash(f'Bienvenido {usuario["nombre"]}!', 'success')
             
-            # Abrir caja automáticamente para cajeros y admins
-            if usuario['rol'] in ['cajero', 'admin']:
-                if abrir_caja_automaticamente():
-                    flash('Caja abierta automáticamente', 'info')
-            
+            # Redirigir según rol y abrir caja si es necesario
             if usuario['rol'] == 'chef':
                 return redirect(url_for('chef'))
             elif usuario['rol'] == 'mozo':
                 return redirect(url_for('ordenes'))
             elif usuario['rol'] == 'admin':
-                return redirect(url_for('productos'))
+                # Abrir caja automáticamente para admin
+                if abrir_caja_automaticamente():
+                    flash('Caja abierta automáticamente', 'info')
+                return redirect(url_for('caja'))
             else:
+                # Para cajero, abrir caja automáticamente
+                if abrir_caja_automaticamente():
+                    flash('Caja abierta automáticamente', 'info')
                 return redirect(url_for('caja'))
         else:
             flash('Usuario o contraseña incorrectos. Si es la primera vez, primero crea las tablas.', 'danger')
@@ -945,7 +948,7 @@ def historial_caja():
                          ahora=datetime.now())
 
 # ==============================
-# RUTAS DE CREACIÓN/EDICIÓN
+# RUTAS DE CREACIÓN/EDICIÓN (CORREGIDO PARA TIPOS DE PRODUCTO)
 # ==============================
 @app.route("/crear_producto", methods=["GET", "POST"])
 @login_required
@@ -956,14 +959,26 @@ def crear_producto():
     cur = conn.cursor()
     cur.execute('SELECT id, nombre FROM categorias ORDER BY nombre')
     categorias = [{'id': c[0], 'nombre': c[1]} for c in cur.fetchall()]
+    
+    cur.execute('SELECT id, nombre FROM proveedores WHERE activo = true ORDER BY nombre')
+    proveedores = [{'id': p[0], 'nombre': p[1]} for p in cur.fetchall()]
+    
     cur.close()
     conn.close()
+    
+    # Definir tipos de producto
+    tipos_producto = [
+        {'valor': 'producto', 'nombre': 'Producto General'},
+        {'valor': 'comida', 'nombre': 'Comida'},
+        {'valor': 'bebida', 'nombre': 'Bebida'}
+    ]
     
     if request.method == "POST":
         nombre = request.form.get("nombre", "").strip()
         precio = request.form.get("precio", "0")
         stock = request.form.get("stock", "0")
         categoria_id = request.form.get("categoria_id")
+        proveedor_id = request.form.get("proveedor_id")
         tipo = request.form.get("tipo", "producto")
         codigo_barra = request.form.get("codigo_barra", "")
         
@@ -973,14 +988,30 @@ def crear_producto():
         
         try:
             precio_float = float(precio)
-            stock_int = int(stock) if stock else 0
+            
+            # Manejar stock según tipo
+            if tipo == 'comida':
+                stock_int = None  # Para comidas, stock es NULL
+                # Si no hay código de barras, generar uno
+                if not codigo_barra:
+                    codigo_barra = f"COM{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            else:
+                # Para productos y bebidas, stock es requerido
+                try:
+                    stock_int = int(stock) if stock else 0
+                except ValueError:
+                    stock_int = 0
+                
+                # Código de barras requerido para productos y bebidas
+                if not codigo_barra and tipo != 'comida':
+                    codigo_barra = f"PROD{datetime.now().strftime('%Y%m%d%H%M%S')}"
             
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute('''
-                INSERT INTO productos (nombre, precio, stock, categoria_id, tipo, codigo_barra) 
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (nombre, precio_float, stock_int, categoria_id, tipo, codigo_barra))
+                INSERT INTO productos (nombre, precio, stock, categoria_id, proveedor_id, tipo, codigo_barra) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ''', (nombre, precio_float, stock_int, categoria_id, proveedor_id, tipo, codigo_barra))
             
             conn.commit()
             flash(f'Producto "{nombre}" creado exitosamente', 'success')
@@ -999,12 +1030,9 @@ def crear_producto():
     return render_template("crear_producto.html",
                          usuario=usuario_actual,
                          categorias=categorias,
-                         ahora=datetime.now(),
-                         tipos_producto=[
-                             {'valor': 'producto', 'nombre': 'Producto General'},
-                             {'valor': 'comida', 'nombre': 'Comida'},
-                             {'valor': 'bebida', 'nombre': 'Bebida'}
-                         ])
+                         proveedores=proveedores,
+                         tipos_producto=tipos_producto,
+                         ahora=datetime.now())
 
 @app.route("/crear_mesa", methods=["GET", "POST"])
 @login_required
@@ -1309,7 +1337,7 @@ def confirmacion_apertura():
     return render_template("confirmacion_apertura.html", usuario=usuario_actual, ahora=datetime.now())
 
 # ==============================
-# RUTAS DE EDICIÓN
+# RUTAS DE EDICIÓN (CORREGIDO PARA TIPOS DE PRODUCTO)
 # ==============================
 @app.route("/editar_producto/<int:id>", methods=["GET", "POST"])
 @login_required
@@ -1319,7 +1347,13 @@ def editar_producto(id):
     cur = conn.cursor()
     
     if request.method == "GET":
-        cur.execute('SELECT p.*, c.nombre as categoria_nombre FROM productos p LEFT JOIN categorias c ON p.categoria_id = c.id WHERE p.id = %s', (id,))
+        cur.execute('''
+            SELECT p.*, c.nombre as categoria_nombre, pr.nombre as proveedor_nombre 
+            FROM productos p 
+            LEFT JOIN categorias c ON p.categoria_id = c.id
+            LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+            WHERE p.id = %s
+        ''', (id,))
         producto_db = cur.fetchone()
         
         if not producto_db:
@@ -1337,21 +1371,35 @@ def editar_producto(id):
             'categoria_id': producto_db[5],
             'proveedor_id': producto_db[6],
             'tipo': producto_db[7],
-            'categoria_nombre': producto_db[9]
+            'categoria_nombre': producto_db[9],
+            'proveedor_nombre': producto_db[10]
         }
         
         cur.execute('SELECT id, nombre FROM categorias ORDER BY nombre')
         categorias = cur.fetchall()
         
+        cur.execute('SELECT id, nombre FROM proveedores WHERE activo = true ORDER BY nombre')
+        proveedores = cur.fetchall()
+        
         cur.close()
         conn.close()
         
         categorias_list = [{'id': c[0], 'nombre': c[1]} for c in categorias]
+        proveedores_list = [{'id': p[0], 'nombre': p[1]} for p in proveedores]
+        
+        # Definir tipos de producto
+        tipos_producto = [
+            {'valor': 'producto', 'nombre': 'Producto General'},
+            {'valor': 'comida', 'nombre': 'Comida'},
+            {'valor': 'bebida', 'nombre': 'Bebida'}
+        ]
         
         return render_template("editar_producto.html",
                              usuario=usuario_actual,
                              producto=producto,
                              categorias=categorias_list,
+                             proveedores=proveedores_list,
+                             tipos_producto=tipos_producto,
                              ahora=datetime.now())
     
     if request.method == "POST":
@@ -1359,6 +1407,7 @@ def editar_producto(id):
         precio = request.form.get("precio", "0")
         stock = request.form.get("stock", "0")
         categoria_id = request.form.get("categoria_id")
+        proveedor_id = request.form.get("proveedor_id")
         tipo = request.form.get("tipo", "producto")
         codigo_barra = request.form.get("codigo_barra", "")
         
@@ -1368,13 +1417,32 @@ def editar_producto(id):
         
         try:
             precio_float = float(precio)
-            stock_int = int(stock) if stock else 0
+            
+            # Manejar stock según tipo
+            if tipo == 'comida':
+                stock_int = None  # Para comidas, stock es NULL
+                # Si no hay código de barras y es comida, generar uno
+                if not codigo_barra:
+                    codigo_barra = f"COM{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            else:
+                # Para productos y bebidas, stock es requerido
+                try:
+                    stock_int = int(stock) if stock else 0
+                except ValueError:
+                    stock_int = 0
+                
+                # Código de barras requerido para productos y bebidas
+                if not codigo_barra and tipo != 'comida':
+                    codigo_barra = f"PROD{datetime.now().strftime('%Y%m%d%H%M%S')}"
             
             cur.execute('''
                 UPDATE productos 
-                SET nombre = %s, precio = %s, stock = %s, categoria_id = %s, tipo = %s, codigo_barra = %s
+                SET nombre = %s, precio = %s, stock = %s, 
+                    categoria_id = %s, proveedor_id = %s, 
+                    tipo = %s, codigo_barra = %s
                 WHERE id = %s
-            ''', (nombre, precio_float, stock_int, categoria_id, tipo, codigo_barra, id))
+            ''', (nombre, precio_float, stock_int, 
+                  categoria_id, proveedor_id, tipo, codigo_barra, id))
             
             conn.commit()
             flash(f'Producto "{nombre}" actualizado exitosamente', 'success')
@@ -2234,7 +2302,7 @@ def api_estado_caja():
 @app.route("/logout")
 def logout():
     session.clear()
-    flash('Sesión cerrada correctamente', 'info')
+    flash('Sesión cerrada correctosamente', 'info')
     return redirect(url_for('login'))
 
 # ==============================
