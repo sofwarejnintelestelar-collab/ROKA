@@ -545,12 +545,12 @@ def crear_tablas_manual():
         '''
 
 # ==============================
-# PANEL DE CAJA (MEJORADA - SIN ERRORES AGRESIVOS)
+# PANEL DE CAJA (VERSIÓN DEFINITIVA - SIN MENSAJES DE CAJA CERRADA)
 # ==============================
 @app.route("/caja")
 @login_required
 def caja():
-    """Panel de caja - Mejorado con apertura automática"""
+    """Panel de caja - Versión definitiva con apertura automática silenciosa"""
     usuario_actual = get_usuario_actual()
     
     # Si el usuario no es cajero o admin, redirigir
@@ -562,28 +562,29 @@ def caja():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Obtener turno de caja abierto
+        # Verificar si hay caja abierta
         cur.execute("SELECT id, fecha_apertura, monto_inicial FROM caja_turnos WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1")
         caja_abierta = cur.fetchone()
         
-        # Si no hay caja abierta, abrir una automáticamente
+        # ✅ NUNCA MOSTRAR MENSAJE DE CAJA CERRADA - SIEMPRE ABRIRLA
         if not caja_abierta:
-            print(f"⚠️  No hay caja abierta para {usuario_actual['nombre']}. Abriendo automáticamente...")
-            if abrir_caja_automaticamente():
-                flash('Se abrió automáticamente un nuevo turno de caja con monto inicial $0', 'info')
-                return redirect(url_for('caja'))  # Recargar para mostrar la caja abierta
+            print(f"🔓 Abriendo caja automáticamente para {usuario_actual['nombre']}...")
+            
+            # Abrir caja automáticamente
+            cur.execute('''
+                INSERT INTO caja_turnos (fecha_apertura, monto_inicial, observaciones, estado)
+                VALUES (NOW(), 0, 'Caja abierta automáticamente', 'abierta')
+                RETURNING id
+            ''')
+            caja_id = cur.fetchone()[0]
+            conn.commit()
+            print(f"✅ Caja #{caja_id} abierta automáticamente")
+            
+            # Obtener la caja recién abierta
+            cur.execute("SELECT id, fecha_apertura, monto_inicial FROM caja_turnos WHERE id = %s", (caja_id,))
+            caja_abierta = cur.fetchone()
         
-        # Ahora sí debería haber caja abierta
-        cur.execute("SELECT id, fecha_apertura, monto_inicial FROM caja_turnos WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1")
-        caja_abierta = cur.fetchone()
-        
-        if not caja_abierta:
-            # Esto no debería pasar, pero por si acaso
-            return render_template("caja_sin_turno.html", 
-                                 usuario=usuario_actual, 
-                                 ahora=datetime.now(),
-                                 mensaje="No se pudo abrir la caja automáticamente. Intenta abrirla manualmente.")
-        
+        # Crear diccionario con información de la caja
         caja_info = {
             'id': caja_abierta[0],
             'fecha_apertura': caja_abierta[1],
@@ -612,17 +613,18 @@ def caja():
         cur.close()
         conn.close()
         
+        # ✅ SIEMPRE mostrar la caja abierta
         return render_template("caja.html", 
                              usuario=usuario_actual, 
                              ahora=datetime.now(),
-                             caja=caja_info,
+                             turno_abierto=caja_info,
                              ordenes_abiertas=ordenes_abiertas)
         
     except Exception as e:
-        print(f"Error en panel de caja: {e}")
-        # En lugar de mostrar error, redirigir a abrir caja
-        flash('Hubo un problema al acceder a la caja. Por favor, abre un turno manualmente.', 'warning')
-        return redirect(url_for('abrir_caja'))
+        print(f"❌ Error crítico en panel de caja: {e}")
+        # En caso de error grave, redirigir a login
+        flash('Error del sistema. Por favor, reinicia sesión.', 'danger')
+        return redirect(url_for('logout'))
 
 # ==============================
 # PANELES PARA OTROS ROLES
@@ -857,13 +859,6 @@ def abrir_caja():
                 pass
     
     return render_template("abrir_caja.html", usuario=usuario_actual, ahora=datetime.now())
-
-# ==============================
-# RESTANTE DEL CÓDIGO (MANTENIDO IGUAL)
-# ==============================
-# [El resto del código se mantiene igual que en tu versión anterior]
-# Solo se modificaron las partes críticas mencionadas arriba
-# Las otras rutas (/mesas, /categorias, /proveedores, etc.) se mantienen igual
 
 # ==============================
 # API MEJORADA PARA VERIFICAR CAJA
