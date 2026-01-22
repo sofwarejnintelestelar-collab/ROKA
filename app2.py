@@ -386,6 +386,39 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def abrir_caja_automaticamente():
+    """Función para abrir caja automáticamente si no hay una abierta"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar si ya hay caja abierta
+        cur.execute("SELECT id FROM caja_turnos WHERE estado = 'abierta'")
+        if cur.fetchone():
+            print("✅ Ya hay una caja abierta")
+            cur.close()
+            conn.close()
+            return True
+        
+        # Abrir nueva caja automáticamente
+        print("🔓 Abriendo caja automáticamente...")
+        cur.execute('''
+            INSERT INTO caja_turnos (fecha_apertura, monto_inicial, observaciones, estado)
+            VALUES (NOW(), 0, 'Caja abierta automáticamente al iniciar sesión', 'abierta')
+            RETURNING id
+        ''')
+        caja_id = cur.fetchone()[0]
+        conn.commit()
+        print(f"✅ Caja #{caja_id} abierta automáticamente")
+        
+        cur.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error al abrir caja automáticamente: {e}")
+        return False
+
 # ==============================
 # RUTAS PRINCIPALES
 # ==============================
@@ -400,6 +433,10 @@ def login():
     if 'user_id' in session:
         usuario_actual = get_usuario_actual()
         if usuario_actual:
+            # Abrir caja automáticamente al iniciar sesión
+            if usuario_actual['rol'] in ['cajero', 'admin']:
+                abrir_caja_automaticamente()
+            
             if usuario_actual['rol'] == 'chef':
                 return redirect(url_for('chef'))
             elif usuario_actual['rol'] == 'mozo':
@@ -420,6 +457,11 @@ def login():
             session['nombre'] = usuario['nombre']
             session['rol'] = usuario['rol']
             flash(f'Bienvenido {usuario["nombre"]}!', 'success')
+            
+            # Abrir caja automáticamente para cajeros y admins
+            if usuario['rol'] in ['cajero', 'admin']:
+                if abrir_caja_automaticamente():
+                    flash('Caja abierta automáticamente', 'info')
             
             if usuario['rol'] == 'chef':
                 return redirect(url_for('chef'))
@@ -509,7 +551,7 @@ def crear_tablas_manual():
         '''
 
 # ==============================
-# PANELES PRINCIPALES
+# PANELES PRINCIPALES (CORREGIDO)
 # ==============================
 @app.route("/caja")
 @login_required
@@ -520,25 +562,64 @@ def caja():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT id, estado FROM caja_turnos WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1")
+        
+        # Obtener turno de caja abierto
+        cur.execute("SELECT id, fecha_apertura, monto_inicial FROM caja_turnos WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1")
         caja_abierta = cur.fetchone()
-        cur.close()
-        conn.close()
         
         if not caja_abierta:
+            # Si no hay caja abierta y el usuario es cajero/admin, abrir una automáticamente
+            if usuario_actual['rol'] in ['cajero', 'admin']:
+                if abrir_caja_automaticamente():
+                    flash('Caja abierta automáticamente', 'info')
+                    return redirect(url_for('caja'))
+            
             # Redirigir a página de caja sin turno
             return render_template("caja_sin_turno.html", 
                                  usuario=usuario_actual, 
                                  ahora=datetime.now(),
                                  mensaje="La caja está cerrada. Debes abrir un turno primero.")
+        
+        caja_info = {
+            'id': caja_abierta[0],
+            'fecha_apertura': caja_abierta[1],
+            'monto_inicial': float(caja_abierta[2]) if caja_abierta[2] else 0
+        }
+        
+        # Obtener órdenes abiertas
+        cur.execute('''
+            SELECT o.id, m.numero as mesa_numero, o.mozo_nombre, o.total 
+            FROM ordenes o 
+            JOIN mesas m ON o.mesa_id = m.id 
+            WHERE o.estado = 'abierta' 
+            ORDER BY o.fecha_apertura DESC
+        ''')
+        ordenes_abiertas_db = cur.fetchall()
+        
+        ordenes_abiertas = []
+        for o in ordenes_abiertas_db:
+            ordenes_abiertas.append({
+                'id': o[0],
+                'mesa_numero': o[1],
+                'mozo_nombre': o[2],
+                'total': float(o[3]) if o[3] else 0
+            })
+        
+        cur.close()
+        conn.close()
+        
+        return render_template("caja.html", 
+                             usuario=usuario_actual, 
+                             ahora=datetime.now(),
+                             caja=caja_info,
+                             ordenes_abiertas=ordenes_abiertas)
+        
     except Exception as e:
         print(f"Error verificando caja: {e}")
         return render_template("caja_sin_turno.html", 
                              usuario=usuario_actual, 
                              ahora=datetime.now(),
                              mensaje="Error al verificar estado de caja.")
-    
-    return render_template("caja.html", usuario=usuario_actual, ahora=datetime.now())
 
 @app.route("/chef")
 @login_required
@@ -1033,6 +1114,11 @@ def crear_proveedor():
 def abrir_caja():
     usuario_actual = get_usuario_actual()
     
+    # Solo cajeros y admins pueden abrir caja
+    if usuario_actual['rol'] not in ['cajero', 'admin']:
+        flash('Acceso restringido. Solo cajeros y administradores pueden abrir caja.', 'danger')
+        return redirect(url_for('caja'))
+    
     if request.method == "POST":
         monto_inicial = request.form.get("monto_inicial", 0)
         observaciones = request.form.get("observaciones", "")
@@ -1044,7 +1130,7 @@ def abrir_caja():
             # Verificar si ya hay caja abierta
             cur.execute("SELECT id FROM caja_turnos WHERE estado = 'abierta'")
             if cur.fetchone():
-                flash('Ya hay una caja abierta', 'danger')
+                flash('Ya hay una caja abierta', 'warning')
                 return redirect(url_for('caja'))
             
             # Abrir nueva caja
@@ -1115,6 +1201,12 @@ def abrir_mesa(mesa_id):
 def cerrar_caja_form():
     """Formulario para cerrar caja"""
     usuario_actual = get_usuario_actual()
+    
+    # Solo cajeros y admins pueden cerrar caja
+    if usuario_actual['rol'] not in ['cajero', 'admin']:
+        flash('Acceso restringido. Solo cajeros y administradores pueden cerrar caja.', 'danger')
+        return redirect(url_for('caja'))
+    
     conn = get_db_connection()
     cur = conn.cursor()
     
@@ -1714,6 +1806,29 @@ def eliminar_proveedor(id):
     return redirect(url_for('proveedores'))
 
 # ==============================
+# API PARA ABRIR CAJA DE EMERGENCIA
+# ==============================
+@app.route("/api/abrir_caja_emergencia", methods=["POST"])
+@login_required
+def api_abrir_caja_emergencia():
+    """API para abrir caja de emergencia (desde el frontend)"""
+    try:
+        usuario_actual = get_usuario_actual()
+        
+        # Solo cajeros y admins pueden abrir caja
+        if usuario_actual['rol'] not in ['cajero', 'admin']:
+            return jsonify({"success": False, "message": "Acceso restringido"}), 403
+        
+        if abrir_caja_automaticamente():
+            return jsonify({"success": True, "message": "Caja abierta exitosamente"})
+        else:
+            return jsonify({"success": False, "message": "Error al abrir caja"}), 500
+            
+    except Exception as e:
+        print(f"Error en api_abrir_caja_emergencia: {e}")
+        return jsonify({"success": False, "message": "Error del servidor"}), 500
+
+# ==============================
 # APIS PÚBLICAS
 # ==============================
 @app.route("/api/mesas")
@@ -1996,6 +2111,12 @@ def api_abrir_turno():
         data = request.get_json()
         monto_inicial = data.get('monto_inicial', 0)
         
+        usuario_actual = get_usuario_actual()
+        
+        # Solo cajeros y admins pueden abrir caja
+        if usuario_actual['rol'] not in ['cajero', 'admin']:
+            return jsonify({"success": False, "message": "Acceso restringido"}), 403
+        
         conn = get_db_connection()
         cur = conn.cursor()
         
@@ -2072,6 +2193,40 @@ def api_notificaciones_mozo():
             conn.close()
         except:
             pass
+
+@app.route("/api/estado_caja")
+@login_required
+def api_estado_caja():
+    """API para obtener estado de la caja"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Verificar si hay caja abierta
+        cur.execute("SELECT id, fecha_apertura, monto_inicial FROM caja_turnos WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1")
+        caja_abierta = cur.fetchone()
+        
+        if caja_abierta:
+            caja_info = {
+                'abierta': True,
+                'id': caja_abierta[0],
+                'fecha_apertura': caja_abierta[1].strftime('%Y-%m-%d %H:%M:%S') if caja_abierta[1] else '',
+                'monto_inicial': float(caja_abierta[2]) if caja_abierta[2] else 0
+            }
+        else:
+            caja_info = {
+                'abierta': False,
+                'mensaje': 'No hay caja abierta'
+            }
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify(caja_info)
+        
+    except Exception as e:
+        print(f"Error obteniendo estado de caja: {e}")
+        return jsonify({'abierta': False, 'error': str(e)})
 
 # ==============================
 # LOGOUT
